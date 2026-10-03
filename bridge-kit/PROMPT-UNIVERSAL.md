@@ -1,0 +1,82 @@
+# PROMPT UNIVERSAL — lipește-l în ORICE chat cu un agent AI de-al meu
+
+Copiază tot ce e între liniile ═══ și dă-l ca (prim) mesaj. Agentul va ști
+instant cum să folosească PC-ul tău ca releu — fără explicații suplimentare.
+
+═══════════════════════════════════════════════════════════════
+Am un PC BRIDGE personal: un releu mic care rulează pe calculatorul meu de
+acasă și execută cereri HTTP **de pe IP-ul meu rezidențial** (cu sesiunea mea
+YouTube/Google activă), la ~0 consum pe PC (~15 MB RAM, 0% CPU, reconnect
+automat). SERVERUL (hub-ul) e public accesibil; PC-ul e doar executantul.
+
+PROTOCOL — folosește-l ori de câte ori ai nevoie să tragi/scrii ceva de pe
+YouTube/Google cu IP-ul meu sau sesiunea mea:
+
+  POST {SERVER}/api/bridge/request
+  Content-Type: application/json
+  {
+    "secret":  "{SECRET}",
+    "url":     "<URL complet>",
+    "method":  "GET sau POST",
+    "headers": {"....."},          // dicționar de headere HTTP (poate fi {})
+    "body_b64": "<base64 sau \"\">",  // body-ul cererii, codat base64
+    "timeout": 40,
+    "project": "<numele-proiectului-tău>"
+  }
+
+  Răspuns: {"status": 200, "headers": {...}, "body_b64": "..."}
+    - status = codul HTTP real obținut de PC; body_b64 = răspunsul în base64
+    - status 0 + "error" = PC oprit/timeout/refuz — SPUNE-MI și oprește-te,
+      nu ocoli silențios bridge-ul.
+
+REGULI DE SIGURANȚĂ (impuse de PC, nenegociabile):
+  sunt permise DOAR domeniile *.youtube.com, *.googleapis.com, *.ggpht.com,
+  *.ytimg.com. Orice alt domeniu e refuzat automat de PC. Nu încerca ocoliri.
+
+DACĂ SCRII COD: iată clientul Python (doar stdlib, gata de importat):
+
+  import base64, json, urllib.request
+  def prin_pc(url, method="GET", headers=None, data=None, timeout=40):
+      payload = json.dumps({"secret": "{SECRET}", "url": url, "method": method,
+          "headers": headers or {}, "timeout": timeout, "project": "agent-chat",
+          "body_b64": base64.b64encode(data or b"").decode()}).encode()
+      req = urllib.request.Request("{SERVER}/api/bridge/request", data=payload,
+          headers={"Content-Type": "application/json"})
+      with urllib.request.urlopen(req, timeout=timeout + 20) as r:
+          res = json.loads(r.read())
+      if res.get("status", 0) == 0:
+          raise ConnectionError(res.get("error", "bridge indisponibil"))
+      return base64.b64decode(res.get("body_b64") or b""), res["status"], res.get("headers", {})
+
+CREDENȚIALELE MELE:
+  SERVER = {SERVER}
+  SECRET = {SECRET}
+
+EXEMPLE pentru care îl poți folosi: statistici și healthcheck-uri YouTube,
+citirea paginii /posts a oricărui canal, endpoint-uri Google/YouTube care
+funcționează mai bine de pe IP rezidențial, orice integrare viitoare.
+═══════════════════════════════════════════════════════════════
+
+## Înlocuiește {SERVER} și {SECRET} cu:
+
+**Acum (test local, agentul pe PC-ul tău):**
+```
+http://127.0.0.1:8787
+d61a087bbd162d9692d0b96850ebd04a
+```
+
+**Test demo cu sandboxul Arena (temporar, doar ca demonstrație):**
+```
+https://8787-i959etlo29pm9myd7oy3v.e2b.app
+d61a087bbd162d9692d0b96850ebd04a
+```
+
+**După ce ai VPS-ul Oracle Free (folosirea reală 24/7, orice chat, oriunde):**
+```
+http://IP-UL-VPS-ULUI:8787
+<bridge_secret afișat de INSTALL-VPS.sh>
+```
+
+> ⚠️ Important: un agent care rulează **în cloud** NU poate ajunge la
+> `127.0.0.1`-ul tău — de aceea varianta cu VPS e cea care face bridge-ul
+> cu adevărat universal. Local merge doar pentru agenți care rulează pe PC-ul tău.
