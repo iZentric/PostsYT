@@ -41,6 +41,13 @@ curl -sSL https://raw.githubusercontent.com/iZentric/PostsYT/arena/01a103b1-post
 → repo + Python + servicii systemd (repornire automată la crash) + dashboard protejat cu token secret.
 Varianta gratuită pe PC: `deploy/INSTALEAZA-PORNIRE-AUTOMATA.bat` (pornește singur la fiecare boot Windows).
 
+#### 🌉 PC Bridge universal — postezi de pe IP-ul tău, PC-ul nu consumă nimic
+Serverul lucrează 24/7, dar publicarea poate *ieși* prin PC-ul tău de acasă (IP rezidențial
+= semnale perfecte pentru YouTube), printr-un releu de ~15 MB RAM și 0% CPU care pornește
+singur la fiecare boot. Rulează **`deploy/INSTALEAZA-BRIDGE.bat`**, completezi serverul +
+secretul afișate de installerul de mai sus și în dashboard apare „🌉 PC Bridge ONLINE".
+Bonus: același bridge îl poate folosi **orice proiect viitor** (protocol + client de 15 linii: [docs/BRIDGE.md](docs/BRIDGE.md)).
+
 ### Opțional (recomandat pentru calitate maximă)
 Deschide `PORNESTE-POSTSYT.bat` cu Notepad și șterge `REM ` din fața rândului cu
 `pip install pillow cairosvg playwright` → imagini PNG reale la upload + sondaje native.
@@ -161,13 +168,16 @@ postsyt/
 ├── brain.py        # generator A/B/C/D/E (template RO + LLM opțional)
 ├── content_banks.py# formulări românești în stilul canalului
 ├── imagemaker.py   # cards SVG/PNG 1080x1080 brand
-├── innertube.py    # publicarea (SAPISIDHASH + create_post + upload imagini)
+├── innertube.py    # publicarea (SAPISIDHASH + create_post + upload imagini; transport plugabil)
+├── bridge_hub.py   # coada + protocolul PC Bridge (server-side)
 ├── studio_bot.py   # sondaje native via Playwright + captură cookies
-├── publisher.py    # alege driverul, fallback-uri
+├── publisher.py    # alege driverul/transportul (bridge vs direct), fallback-uri
 ├── agent.py        # orchestrare: scan → generează → programează → publică
 ├── scheduler.py    # sloturi, quiet hours, caps
-├── dashboard.py    # web UI (stdlib)
+├── dashboard.py    # web UI + rutele /bridge (stdlib)
 └── cli.py          # init/doctor/login/tick/daemon/dashboard/publish/generate/demo
+bridge/
+└── pc_bridge.py    # releul de pe PC (stdlib-only, proxy-lock YouTube/Google)
 ```
 
-Teste: `python -m unittest discover -s tests -v` (19 teste).
+Teste: `python -m unittest discover -s tests -v` (29 teste).

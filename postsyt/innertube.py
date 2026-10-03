@@ -85,9 +85,12 @@ def load_cookies(txt_path: str, json_path: str) -> dict[str, str]:
 
 
 class InnertubeClient:
-    def __init__(self, cookies: dict[str, str], channel_id: Optional[str] = None):
+    def __init__(self, cookies: dict[str, str], channel_id: Optional[str] = None,
+                 transport=None):
+        """transport: fn(method,url,headers,body)->(status,headers,text) — ex. prin PC bridge."""
         self.cookies = cookies
         self.channel_id = channel_id
+        self.transport = transport
         self.api_key: Optional[str] = None
         self.context: Optional[dict] = None
         self.page_id: Optional[str] = None       # DELEGATED_SESSION_ID (brand accounts)
@@ -114,7 +117,7 @@ class InnertubeClient:
         return h
 
     def refresh_config(self) -> None:
-        page = http_get(ORIGIN, headers=self._headers())
+        _, _, page = self._req("GET", ORIGIN, headers=self._headers())
         cfg = extract_ytcfg(page)
         if not cfg.get("INNERTUBE_API_KEY"):
             raise AuthError("Nu am putut citi configul YouTube. Cookies expirate? Refă login.")
@@ -136,6 +139,16 @@ class InnertubeClient:
             if m:
                 self.channel_id = m.group(1)
 
+    def _req(self, method: str, url: str, headers: Optional[dict] = None,
+             body: bytes | str | None = None):
+        """Toate cererile trec pe aici: direct sau prin PC bridge."""
+        if self.transport is not None:
+            return self.transport(method, url, headers or {}, body)
+        if method.upper() == "GET":
+            return 200, {}, http_get(url, headers=headers or self._headers())
+        text, resp_headers = http_post(url, body=body, headers=headers or {})
+        return 200, resp_headers, text
+
     def ensure_config(self) -> None:
         if not self.api_key or not self.context:
             self.refresh_config()
@@ -148,8 +161,8 @@ class InnertubeClient:
         self.ensure_config()
         if not self.channel_id:
             raise InnertubeError("ChannelId necunoscut — setează own_channel_id în config.")
-        page = http_get(f"{ORIGIN}/channel/{self.channel_id}/community",
-                        headers=self._headers())
+        _, _, page = self._req("GET", f"{ORIGIN}/channel/{self.channel_id}/community",
+                               headers=self._headers())
         m = re.search(r'"createBackstagePostParams"\s*:\s*"((?:[^"\\]|\\.)*)"', page)
         if not m:
             if "Community" not in page and "community" not in page:
@@ -165,8 +178,8 @@ class InnertubeClient:
     def upload_image(self, image_bytes: bytes) -> dict:
         """Returnează imagesData element: {encryptedBlobId, previewCoordinates}."""
         self.ensure_config()
-        _, resp_headers = http_post(
-            f"{ORIGIN}/channel_image_upload/posts", body=b"",
+        _, resp_headers, _ = self._req(
+            "POST", f"{ORIGIN}/channel_image_upload/posts", body=b"",
             headers=self._headers(**{
                 "X-YouTube-ChannelId": self.channel_id or "",
                 "X-Goog-Upload-Protocol": "resumable",
@@ -178,12 +191,13 @@ class InnertubeClient:
         upload_url = resp_headers.get("X-Goog-Upload-URL") or resp_headers.get("X-Goog-Upload-Url")
         if not upload_url:
             raise InnertubeError("Nu am primit upload URL pentru imagine (X-Goog-Upload-URL).")
-        body, _ = http_post(upload_url, body=image_bytes, headers=self._headers(**{
-            "X-Goog-Upload-Command": "upload, finalize",
-            "X-Goog-Upload-Offset": "0",
-            "X-YouTube-ChannelId": self.channel_id or "",
-            "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
-        }))
+        _, _, body = self._req("POST", upload_url, body=image_bytes,
+            headers=self._headers(**{
+                "X-Goog-Upload-Command": "upload, finalize",
+                "X-Goog-Upload-Offset": "0",
+                "X-YouTube-ChannelId": self.channel_id or "",
+                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+            }))
         data = json.loads(body)
         blob = data.get("encryptedBlobId")
         if not blob:
@@ -222,26 +236,28 @@ class InnertubeClient:
         url = f"{ORIGIN}/youtubei/v1/backstage/create_post?key={self.api_key}&prettyPrint=false"
         client = self.context.get("client", {}) if self.context else {}
         try:
-            resp, _ = http_post(url, body=json.dumps(body), headers=self._headers(**{
-                "Authorization": sapisidhash(self.cookies),
-                "Content-Type": "application/json",
-                "X-Youtube-Client-Name": str(client.get("clientName") or 1),
-                "X-Youtube-Client-Version": str(client.get("clientVersion") or ""),
-                "X-Goog-Visitor-Id": str(self.visitor_data or ""),
-            }))
-        except HttpError as e:
-            if e.status in (400, 401, 403) and not self._backstage_params:
-                raise
-            if e.status in (400, 401, 403):
-                # reîncearcă o dată cu params proaspete
-                body["createBackstagePostParams"] = self.backstage_params(force=True)
-                resp, _ = http_post(url, body=json.dumps(body), headers=self._headers(**{
+            _, _, resp = self._req("POST", url, body=json.dumps(body),
+                headers=self._headers(**{
                     "Authorization": sapisidhash(self.cookies),
                     "Content-Type": "application/json",
                     "X-Youtube-Client-Name": str(client.get("clientName") or 1),
                     "X-Youtube-Client-Version": str(client.get("clientVersion") or ""),
                     "X-Goog-Visitor-Id": str(self.visitor_data or ""),
                 }))
+        except HttpError as e:
+            if e.status in (400, 401, 403) and not self._backstage_params:
+                raise
+            if e.status in (400, 401, 403):
+                # reîncearcă o dată cu params proaspete
+                body["createBackstagePostParams"] = self.backstage_params(force=True)
+                _, _, resp = self._req("POST", url, body=json.dumps(body),
+                    headers=self._headers(**{
+                        "Authorization": sapisidhash(self.cookies),
+                        "Content-Type": "application/json",
+                        "X-Youtube-Client-Name": str(client.get("clientName") or 1),
+                        "X-Youtube-Client-Version": str(client.get("clientVersion") or ""),
+                        "X-Goog-Visitor-Id": str(self.visitor_data or ""),
+                    }))
             else:
                 raise
         m = re.search(r'"postId"\s*:\s*"([^"]+)"', resp)

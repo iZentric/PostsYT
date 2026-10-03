@@ -30,8 +30,11 @@ class Agent:
         self.cfg, self.store, self.log = cfg, store, log
         self.brain = Brain(cfg, self._make_llm())
         self.images = ImageMaker(cfg.images_dir)
+        from .bridge_hub import BridgeHub
         from .publisher import Publisher
+        self.hub = BridgeHub(getattr(cfg, "bridge_secret", ""))
         self.publisher = Publisher(cfg, store, log=log)
+        self.publisher.set_hub(self.hub)
 
     def _make_llm(self) -> Optional[LLM]:
         import os

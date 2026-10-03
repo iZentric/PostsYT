@@ -20,6 +20,7 @@ import os
 import threading
 import urllib.parse
 from datetime import datetime
+import html as html_mod
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
 
@@ -103,7 +104,7 @@ video,img.emoji{vertical-align:middle}
 </head>
 <body>
 <h1>⚡ <b>PostsYT</b> — agentul de postări al lui <b>iSentric</b> <span class="pill">Minecraft · PokeCity</span></h1>
-<div class="sub">Regula de aur: hook + visual + link la cel mai nou clip · ritm copiat după @JocuriHorrorSky · <span class="pulse"></span> daemon: {{daemon}}</div>
+<div class="sub">Regula de aur: hook + visual + link la cel mai nou clip · ritm copiat după @JocuriHorrorSky · <span class="pulse"></span> daemon: {{daemon}}{{bridge}}</div>
 
 <div class="grid kpis">
  <div class="card kpi"><b>{{kpi_videos}}</b><span>videoclipuri urmărite</span></div>
@@ -261,6 +262,16 @@ class Dashboard:
             f'<div class="{e["level"]}">[{(e["ts"] or "")[5:16].replace("T"," ")}] {e["msg"]}</div>'
             for e in evs)
 
+    def _bridge_badge(self) -> str:
+        hub = getattr(self.agent, "hub", None)
+        if not hub or not hub.enabled:
+            return ""          # secret nesetat — nu poluez ecranul
+        online = [b for b in hub.status() if b["online"]]
+        if online:
+            return (f' · <span style="color:#3ecf8e">🌉 PC Bridge ONLINE '
+                    f'({html_mod.escape(online[0]["name"])})</span>')
+        return ' · <span style="color:#e2a53c">🌉 PC Bridge offline — public direct</span>'
+
     def render(self) -> str:
         from . import __version__
         d_list = self.store.drafts(status=STATUS_DRAFT)
@@ -272,6 +283,7 @@ class Dashboard:
         html = PAGE
         repl = {
             "{{daemon}}": daemon,
+            "{{bridge}}": self._bridge_badge(),
             "{{kpi_videos}}": str(self.store.count_videos()),
             "{{kpi_drafts}}": str(len(d_list)),
             "{{kpi_today}}": str(self.store.published_today()),
@@ -339,9 +351,85 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             self.end_headers()
             self.wfile.write(body)
 
+        # ---------------- PC Bridge universal (docs/BRIDGE.md) ----------------
+        def _read_json_body(self, cap: int = 25 * 1024 * 1024) -> dict:
+            length = min(int(self.headers.get("Content-Length", 0) or 0), cap)
+            try:
+                import json as j
+                return j.loads(self.rfile.read(length) or b"{}")
+            except Exception:
+                return {}
+
+        def _bridge_secret_ok(self, q: dict) -> bool:
+            hub = getattr(agent, "hub", None)
+            sec = self.headers.get("X-Bridge-Key", "") or q.get("secret", [""])[0]
+            return bool(hub and hub.check_secret(sec))
+
+        def _bridge_poll(self, q):
+            hub = getattr(agent, "hub", None)
+            if not hub or not self._bridge_secret_ok(q):
+                self._send(json.dumps({"error": "secret invalid sau bridge dezactivat"}),
+                           "application/json", 403)
+                return
+            name = (q.get("name", ["pc"])[0] or "pc")[:64]
+            agent_name = (q.get("agent", ["generic"])[0] or "generic")[:64]
+            try:
+                wait = int(q.get("wait", ["45"])[0])
+            except (ValueError, TypeError):
+                wait = 45
+            task = hub.poll(name, agent_name, wait=wait)
+            self._send(json.dumps({"task": task}), "application/json")
+
+        def _bridge_status(self, q):
+            if not self._bridge_secret_ok(q):
+                self._send(json.dumps({"error": "secret invalid"}), "application/json", 403)
+                return
+            self._send(json.dumps({"bridges": agent.hub.status(),
+                                   "publish_via_bridge": bool(getattr(cfg, "publish_via_bridge", False)),
+                                   "queue_len": len(agent.hub._queue)}), "application/json")
+
+        def _bridge_result(self):
+            payload = self._read_json_body()
+            hub = getattr(agent, "hub", None)
+            if not hub or not hub.check_secret(str(payload.get("secret", ""))):
+                self._send(json.dumps({"error": "secret invalid"}), "application/json", 403)
+                return
+            tid = str(payload.get("id", ""))[:64]
+            result = {k: payload.get(k) for k in ("status", "headers", "body_b64", "error")}
+            hub.deliver(tid, result)
+            store.log(f"🌉 Bridge a livrat taskul {tid[:8]} (status {result.get('status') or result.get('error', '')})")
+            self._send(json.dumps({"ok": True}), "application/json")
+
+        def _bridge_request(self):
+            """Pentru ORICE proiect: cerere sincronă prin PC (vezi docs/BRIDGE.md)."""
+            payload = self._read_json_body()
+            hub = getattr(agent, "hub", None)
+            if not hub or not hub.check_secret(str(payload.get("secret", ""))):
+                self._send(json.dumps({"status": 0, "error": "secret invalid"}),
+                           "application/json", 403)
+                return
+            import base64 as b64
+            try:
+                raw_body = b64.b64decode(payload.get("body_b64") or b"")
+            except Exception:
+                raw_body = b""
+            res = hub.submit(str(payload.get("url", "")),
+                             method=str(payload.get("method", "GET"))[:8],
+                             headers=payload.get("headers") or {},
+                             body=raw_body,
+                             timeout=min(int(payload.get("timeout", 40) or 40), 120),
+                             project=str(payload.get("project", "generic"))[:64])
+            self._send(json.dumps(res), "application/json")
+
         def do_GET(self):
             u = urllib.parse.urlparse(self.path)
             q_get = urllib.parse.parse_qs(u.query)
+            if u.path == "/bridge/poll":
+                self._bridge_poll(q_get)
+                return
+            if u.path == "/api/bridge/status":
+                self._bridge_status(q_get)
+                return
             if self.TOKEN and q_get.get("key", [""])[0] == self.TOKEN:
                 self._redirect("/", cookie=f"{self.COOKIE_NAME}={self.TOKEN}; HttpOnly; Path=/; Max-Age=2592000")
                 return
@@ -376,6 +464,12 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
 
         def do_POST(self):
             u = urllib.parse.urlparse(self.path)
+            if u.path == "/bridge/result":
+                self._bridge_result()
+                return
+            if u.path == "/api/bridge/request":
+                self._bridge_request()
+                return
             if u.path == "/login":
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length).decode("utf-8", "replace")

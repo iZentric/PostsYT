@@ -55,10 +55,12 @@ cd "$DIR/app"
 mkdir -p data
 if [ ! -f config.json ]; then cp config.example.json config.json; fi
 TOKEN="$(openssl rand -hex 16)"
-python3 - "$TOKEN" <<'PY'
+BRIDGE_SECRET="$(openssl rand -hex 16)"
+python3 - "$TOKEN" "$BRIDGE_SECRET" <<'PY'
 import json, sys
 cfg = json.load(open("config.json", encoding="utf-8"))
 cfg["dashboard_token"] = sys.argv[1]
+cfg["bridge_secret"] = sys.argv[2]
 json.dump(cfg, open("config.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 PY
 chmod 600 config.json 2>/dev/null || true
@@ -116,6 +118,13 @@ echo "    2. aici pe server rulează:"
 echo "       bash $DIR/app/deploy/install-cookies.sh"
 echo "       și lipește textul exportat (apoi apasă Ctrl+D)"
 echo "    3. verifică:  $PYBIN -m postsyt doctor   (din $DIR/app)"
+echo ""
+echo " 🌉 PC BRIDGE (recomandat: postările ies de pe IP-ul tău de acasă):"
+echo "    pe PC-ul tău Windows rulează:  deploy\\INSTALEAZA-BRIDGE.bat"
+echo "    când îți cere datele, completezi:"
+echo "      Server:  http://$IP:$PORT"
+echo "      Secret:  $BRIDGE_SECRET"
+echo "    (același bridge poate fi folosit de ORICE proiect viitor — docs/BRIDGE.md)"
 echo ""
 echo " 🔎 Comenzi utile:"
 echo "    systemctl status postsyt-daemon    # starea agentului"

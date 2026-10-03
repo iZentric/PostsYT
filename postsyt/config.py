@@ -64,6 +64,10 @@ class Config:
     dashboard_port: int = 8787
     dashboard_token: str = ""   # dacă e setat, dashboardul cere cheia (VPS)
 
+    # PC Bridge universal (vezi docs/BRIDGE.md) — agentul cere, PC-ul execută
+    bridge_secret: str = ""            # setat => hub-ul acceptă PC-uri bridge
+    publish_via_bridge: bool = True    # publică de pe IP-ul de acasă când bridge-ul e online
+
     @staticmethod
     def default() -> "Config":
         return Config()
