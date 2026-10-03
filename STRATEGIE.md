@@ -24,6 +24,20 @@ comentarii (aceeași mecanică de engagement).
 
 ## 2. Ce face canale ca @JocuriHorrorSky să explodeze pe Community
 
+### ⭐ Insight-ul cheie: postările apar direct în feed-ul de SHORTS
+
+Community posts nu stau doar în tab-ul Community — YouTube le bagă **între Shorts-uri, în
+același feed de scroll**. Adică postarea stă în aceeași conductă cu traficul cel mai mare de pe
+platformă. De aceea „Bober” (un cuvânt + o imagine) a luat 7.8K like-uri: lumea nu l-a căutat,
+i-a apărut în față ca orice Short. Reguli derivate (toate aplicate de agent):
+
+- **hook în primele 1–2 rânduri** (≤160 caractere) — restul e sub „expand” și nu-l vede nimeni
+- **imagine pătrată 1080×1080** mare, lizibilă pe mobil — exact ce generează ImageMaker
+- **opțiuni de sondaj ≤45 caractere** — vot dintr-o singură privire, ca pe un Short
+- **linkul mereu LA FINAL** — nu împinge conținutul sub fold
+- **efect compus cu Shorts-urile proprii**: Short (#pokecity) → viewer nou → postare în feed →
+  click pe episodul lung. Shorts-urile și postările se amplifică reciproc în același feed.
+
 Din 8 postări reale citite azi de pe /posts-ul lui (4.1K–7.8K like-uri fiecare):
 
 1. **Meme-ul banal bate totul** — postarea „Bober” (un cuvânt + o imagine amuzantă):

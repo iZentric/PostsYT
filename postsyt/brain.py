@@ -20,7 +20,19 @@ from .models import (Draft, KIND_MEME, KIND_POLL, KIND_QUESTION, KIND_TREND,
 from .util import count_emojis, jaccard, utcnow, word_set
 
 MAX_CHARS = 1200
+MAX_CHARS_SHORTS_FEED = 420      # în feed-ul de Shorts postările se trunchiază rapid
 MAX_EMOJI = 14
+MAX_HOOK_CHARS = 160             # primele 1-2 rânduri = tot ce vede lumea fără „expand"
+MAX_POLL_OPTION_CHARS = 45       # vot dintr-o singură privire, ca pe un Short
+
+
+def _hook_first(text: str, hook: str, max_chars: int = MAX_HOOK_CHARS) -> str:
+    """Garantează că postarea ÎNCEPE cu hook-ul (vizualizare Shorts feed)."""
+    first_block = text.split("\n", 1)[0]
+    if len(first_block) <= max_chars and hook.split("\n")[0][:20] in text[:200]:
+        return text
+    rest = text[len(first_block):].lstrip("\n") if "\n" in text else ""
+    return hook + "\n\n" + (rest or "")
 
 
 def trim(text: str, limit: int = MAX_CHARS) -> str:
@@ -105,9 +117,13 @@ class Brain:
 
     def _finalize(self, d: Draft) -> Draft:
         d.text = cap_emojis(trim(d.text))
+        d.text = re.sub(r"\n{3,}", "\n\n", d.text).strip()
+        # linkul mereu la FINAL (în Shorts feed nu împinge conținutul sub fold)
+        if d.link and d.link in d.text:
+            d.text = d.text.replace(d.link, "").rstrip() + f"\n{d.link}"
         if d.poll_question:
-            d.poll_question = trim(d.poll_question, 300)
-            d.poll_options = [trim(o, 65) for o in d.poll_options][:5]
+            d.poll_question = trim(d.poll_question, 180)
+            d.poll_options = [trim(o, MAX_POLL_OPTION_CHARS) for o in d.poll_options][:5]
         d.created_at = utcnow()
         if self.cfg.autopublish:
             d.status = STATUS_APPROVED
@@ -133,6 +149,7 @@ class Brain:
             fallback)
         if url not in text:
             text = text.rstrip() + f"\n🔗 {url}"
+        text = _hook_first(text, hook)
         return self._finalize(Draft(
             kind=KIND_VIDEO, text=text, link=url, video_id=video.get("id", ""),
             source="trigger: video nou detectat în RSS"))
@@ -159,6 +176,7 @@ class Brain:
             text = fallback
         if own_link not in text:
             text = text.rstrip() + f"\n🔗 {own_link}"
+        text = _hook_first(text, opener)
         return self._finalize(Draft(
             kind=KIND_TREND, text=text, link=own_link,
             source=f"trend de la {trend_channel}: {trend_title[:90]}"))
@@ -204,6 +222,7 @@ class Brain:
             f"➡️ Iar până decidem, cel mai nou clip: {own_link}")
         if own_link not in text:
             text = text.rstrip() + f"\n🔗 {own_link}"
+        text = _hook_first(text, q)
         return self._finalize(Draft(
             kind=KIND_QUESTION, text=text, link=own_link,
             source="întrebare comunitate programată"))
