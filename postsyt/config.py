@@ -62,6 +62,7 @@ class Config:
     db_path: str = str(DATA_DIR / "postsyt.db")
     images_dir: str = str(DATA_DIR / "images")
     dashboard_port: int = 8787
+    dashboard_token: str = ""   # dacă e setat, dashboardul cere cheia (VPS)
 
     @staticmethod
     def default() -> "Config":

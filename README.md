@@ -28,6 +28,19 @@ postări pe tab-ul Community (text + imagine + sondaje + link), urmărind:
 Lasă fereastra neagră deschisă cât vrei să posteze automat. O închizi → se oprește.
 Vrei să posteze și noaptea? Lasă PC-ul pornit peste noapte, sau pune-l pe un mini-PC/VPS.
 
+## 🌐 Rulează 24/7 FĂRĂ PC-ul tău (recomandat dacă îl resetezi/stingi des)
+
+Agentul pe un mini-server = postează non-stop, indiferent de PC-ul tău.
+**Ghid complet pas-cu-pas: [docs/VPS.md](docs/VPS.md)** (Oracle Cloud Free Tier = GRATIS,
+sau Hetzner/Contabo ~€4/lună). Pe server, o singură comandă instalează tot:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/iZentric/PostsYT/arena/01a103b1-postsyt/deploy/INSTALL-VPS.sh | sudo bash
+```
+
+→ repo + Python + servicii systemd (repornire automată la crash) + dashboard protejat cu token secret.
+Varianta gratuită pe PC: `deploy/INSTALEAZA-PORNIRE-AUTOMATA.bat` (pornește singur la fiecare boot Windows).
+
 ### Opțional (recomandat pentru calitate maximă)
 Deschide `PORNESTE-POSTSYT.bat` cu Notepad și șterge `REM ` din fața rândului cu
 `pip install pillow cairosvg playwright` → imagini PNG reale la upload + sondaje native.

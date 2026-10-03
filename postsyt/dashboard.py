@@ -294,9 +294,41 @@ class Dashboard:
 def make_handler(dash: Dashboard):
     cfg, store, agent = dash.cfg, dash.store, dash.agent
 
+
     class Handler(BaseHTTPRequestHandler):
+        TOKEN = cfg.dashboard_token or ""
+        COOKIE_NAME = "postsyt_key"
+
         def log_message(self, *a):
             pass
+
+        def _authed(self) -> bool:
+            if not self.TOKEN:
+                return True
+            cookie = self.headers.get("Cookie", "")
+            return f"{self.COOKIE_NAME}={self.TOKEN}" in cookie
+
+        def _login_page(self, err: str = ""):
+            body = f"""<!DOCTYPE html><html lang=ro><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>PostsYT — login</title><style>body{{background:#0b0f1a;color:#e8edf7;font:16px 'Segoe UI';display:grid;place-items:center;height:100vh}}
+form{{background:#131a2c;border:1px solid #243050;padding:28px;border-radius:16px;text-align:center}}input{{background:#0d1425;color:#fff;border:1px solid #37508a;border-radius:10px;padding:10px 14px;font-size:15px;width:240px}}
+button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer;margin-top:12px}}p{{color:#f87171;font-size:13px}}</style></head>
+<body><form method=POST action=/login><h2>⚡ PostsYT</h2><div style="color:#8ea0c2;font-size:13px;margin:6px 0 12px">introdu cheia de acces</div>
+<input name=key type=password autofocus placeholder="cheia ta secretă"><br>{err}<button>Intră</button></form></body></html>"""
+            b = body.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
+
+        def _redirect(self, url: str, cookie: str = ""):
+            self.send_response(302)
+            self.send_header("Location", url)
+            if cookie:
+                self.send_header("Set-Cookie", cookie)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
 
         def _send(self, text: str, ctype="text/html; charset=utf-8", code=200):
             body = text.encode("utf-8")
@@ -309,6 +341,13 @@ def make_handler(dash: Dashboard):
 
         def do_GET(self):
             u = urllib.parse.urlparse(self.path)
+            q_get = urllib.parse.parse_qs(u.query)
+            if self.TOKEN and q_get.get("key", [""])[0] == self.TOKEN:
+                self._redirect("/", cookie=f"{self.COOKIE_NAME}={self.TOKEN}; HttpOnly; Path=/; Max-Age=2592000")
+                return
+            if not self._authed():
+                self._login_page()
+                return
             if u.path == "/" or u.path == "/index.html":
                 self._send(dash.render())
             elif u.path.startswith("/img/"):
@@ -337,6 +376,18 @@ def make_handler(dash: Dashboard):
 
         def do_POST(self):
             u = urllib.parse.urlparse(self.path)
+            if u.path == "/login":
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8", "replace")
+                key = urllib.parse.parse_qs(body).get("key", [""])[0]
+                if key == self.TOKEN and self.TOKEN:
+                    self._redirect("/", cookie=f"{self.COOKIE_NAME}={key}; HttpOnly; Path=/; Max-Age=2592000")
+                else:
+                    self._login_page("<p>cheie greșită</p>")
+                return
+            if not self._authed():
+                self._login_page()
+                return
             if not u.path.startswith("/action/"):
                 self._send("Not found", "text/plain", 404)
                 return
