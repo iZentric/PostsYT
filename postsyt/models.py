@@ -12,6 +12,8 @@ KIND_TREND = "B"      # trend morph de la alți creatori / gaming trending
 KIND_POLL = "C"       # sondaj zilnic (engagement maxim)
 KIND_MEME = "D"       # meme / imagine amuzantă (stil "Bober")
 KIND_QUESTION = "E"   # întrebare pentru comunitate ("Facem episod cu X?")
+KIND_RECAP = "F"        # recap/mulțumiri săptămânale (postarea cu cel mai mare engagement la template)
+KIND_SCHEDULE = "G"     # anunț de program săptămânal (antrenează audiența să revină)
 
 KIND_LABELS = {
     KIND_VIDEO: "🎬 Anunț video",
@@ -19,6 +21,8 @@ KIND_LABELS = {
     KIND_POLL: "📊 Sondaj",
     KIND_MEME: "😂 Meme / imagine",
     KIND_QUESTION: "❓ Întrebare comunitate",
+    KIND_RECAP: "💛 Recap & mulțumiri",
+    KIND_SCHEDULE: "📅 Program săptămână",
 }
 
 STATUS_DRAFT = "draft"

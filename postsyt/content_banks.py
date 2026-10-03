@@ -112,3 +112,37 @@ TREND_BRIDGES = [
 ]
 
 EMOJI_ENERGY = ["🔥", "😱", "😂", "💀", "👀", "🚀", "⚡", "🎮", "💛", "🌋", "🧠"]
+
+# ------------------------------------------------------------- Tip F: recap & mulțumiri (duminică)
+RECAPS = [
+    "Va MULTUMESC MULT pentru toată susținerea de la EPISOADELE din săptămâna asta 🤗💛\nCel mai tare moment pentru mine a fost pe PokeCity. Care a fost al vostru? ⬇️",
+    "RECAP săptămână PokeCity: crize de râs, Pokémoni prinși și cel puțin o lavă pe zi 😂🔥\nMulțumesc că sunteți AICI! 💛 Ce vreți săptămâna viitoare? 👀",
+    "Săptămâna asta ne-ați făcut canalul să bata recorduri 🚀💛\nDacă ai fost pe live-uri, scrie-mi momentul pe care nu-l uiți! ⬇️",
+    "VĂ MULȚUMESC pentru fiecare like, vot și comentariu din săptămâna asta 🤗💛\nSe simte că suntem o ECHIPĂ. Săptămâna viitoare: ceva MARE se pregătește 👀🔥",
+]
+
+# ------------------------------------------------------------- Tip G: program săptămânal (luni)
+SCHEDULE_POSTS = [
+    "Gata de o săptămână NEBUNĂ pe PokeCity? 😎\n➡️ Program:\n👀 Marți & Joi & Sâmbătă — 🔴 LIVE de la 18:00\n👀 Episoade + Shorts aproape ZILNIC\n⭐ Spor la școală — seara ne vedem aici! 💛",
+    "SĂPTĂMÂNA ASTA pe canal 🔥\n🎮 Marți/Joi/Sâmbătă LIVE 18:00 — vânăm Pokémoni cu voi\n📺 Episoade PokeCity pe parcurs\nScrie-mi în comentarii la ce LIVE vii sigur! ⬇️",
+    "➡️ PROGRAM SĂPTĂMÂNAL PokeCity ⭐\n🔴 LIVE: marți · joi · sâmbătă, ora 18:00\n😱 Episoade noi în restul zilelor\nCe zi a săptămânii e preferata ta pentru live? 👀",
+]
+
+# ------------------------------------------------------------- Întrebări "UNDE/CE/CÂND" (max comentarii — date reale)
+PREDICTION_QUESTIONS = [
+    "🔥 UNDE credeți că ne așteaptă următorul POKÉMON LEGENDAR??? 👀 (scrie biomul în comentarii)",
+    "CE Pokémon ar trebui să fie următoarea noastră PRADĂ pe PokeCity? 👀 Cea mai votată variantă intră în episod!",
+    "CÂND ziceți că să dăm RAID-ul cel mare — marți sau joi la live? 👀 Decideți voi!",
+    "CE să construim în CENTRUL orașului PokeCity? Cea mai tare idee din comentarii se construiește LIVE 🏗️",
+    "UNDE să ne ascundem baza secretă — munte, ocean sau Nether? 👀 Scrie-mi alegerea!",
+]
+
+# ------------------------------------------------------------- Voturi eveniment comunitate (leagă postările de LIVE)
+COMMUNITY_VOTES = [
+    ("Ce eveniment facem la live-ul de {day}?",
+     ["Vânătoare de legendare 🎯", "Arena 1v1 cu abonații ⚔️", "Construim cu abonații 🏗️", "Apocalipsă Zombie 🧟"]),
+    ("Ce challenge accept la live-ul de {day}?",
+     ["Fără armură toată sesiunea 💀", "Doar cu un Pokémon 🐣", "Fără să mor (dacă mor — pedeapsa 😂)", "Speedrun diamante 💎"]),
+    ("Cum măcicim live-ul de {day}?",
+     ["Cu abonații pe server 🎮", "Solo hardcore 😈", "Cu Nocivanu chaos duo 🤪", "Provocări de la chat 🎲"]),
+]

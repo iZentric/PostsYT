@@ -15,8 +15,8 @@ import urllib.request
 from typing import Optional
 
 from . import content_banks as bank
-from .models import (Draft, KIND_MEME, KIND_POLL, KIND_QUESTION, KIND_TREND,
-                     KIND_VIDEO, STATUS_APPROVED, STATUS_DRAFT)
+from .models import (Draft, KIND_MEME, KIND_POLL, KIND_QUESTION, KIND_RECAP,
+                     KIND_SCHEDULE, KIND_TREND, KIND_VIDEO, STATUS_APPROVED, STATUS_DRAFT)
 from .util import count_emojis, jaccard, utcnow, word_set
 
 MAX_CHARS = 1200
@@ -214,11 +214,11 @@ class Brain:
 
     # ............................................ Tip E — întrebare comunitate
     def gen_question(self, own_link: str) -> Draft:
-        q = self._pick(bank.QUESTIONS)
+        q = self._pick(bank.QUESTIONS + bank.PREDICTION_QUESTIONS)
         text = self._llm_or(
             f"Scrie o postare-întrebare pentru comunitatea iSentric în stilul: «{q}». "
             f"Adaugă provocarea de a lăsa răspunsul în comentarii și termină cu linkul {own_link}.",
-            f"{q}\n\nZi-mi DA în comentarii sau propune tu ceva mai nebunesc 👇\n"
+            f"{q}\n\nZi-mi în comentarii — citesc TOT și cea mai tare idee o pun în episodul următor 👇\n"
             f"➡️ Iar până decidem, cel mai nou clip: {own_link}")
         if own_link not in text:
             text = text.rstrip() + f"\n🔗 {own_link}"
@@ -226,3 +226,34 @@ class Brain:
         return self._finalize(Draft(
             kind=KIND_QUESTION, text=text, link=own_link,
             source="întrebare comunitate programată"))
+
+    # ............................................ Tip F — recap & mulțumiri (duminică)
+    def gen_recap(self, own_link: str = "") -> Draft:
+        text = self._llm_or(
+            "Scrie o postare de RECAP de duminică pentru canalul iSentric (Minecraft/PokeCity). "
+            "Mulțumește comunității pentru săptămâna trecută, amintește un moment amuzant generic "
+            "și întreabă care a fost momentul lor preferat. Max 400 caractere.",
+            self._pick(bank.RECAPS))
+        return self._finalize(Draft(
+            kind=KIND_RECAP, text=text, link=own_link,
+            source="recap de duminică (formatul cu engagement record la template)"))
+
+    # ............................................ Tip G — program săptămânal (luni)
+    def gen_schedule(self, own_link: str = "") -> Draft:
+        days = " · ".join(d0.capitalize() for d0 in (self.cfg.live_days or []))
+        tpl = self._pick(bank.SCHEDULE_POSTS)
+        return self._finalize(Draft(
+            kind=KIND_SCHEDULE, text=tpl, link=own_link,
+            source=f"anunț program săptămânal (live: {days} {self.cfg.live_hour}:00)"))
+
+    # ............................................. Vot eveniment live (postările leagă de live-uri)
+    def gen_event_poll(self, own_link: str = "", day: str = "marți") -> Draft:
+        tpl, opts = random.choice(bank.COMMUNITY_VOTES)
+        q = tpl.replace("{day}", day)
+        text = (f"{q}\n\n🗳️ Votează sus — varianta câștigătoare se joacă CHIAR LA LIVE! "
+                f"🔴 Le vezi toate pe canal, live {'/'.join(self.cfg.live_days)} de la {self.cfg.live_hour}:00"
+                + (f"\n➡️ {own_link}" if own_link else ""))
+        return self._finalize(Draft(
+            kind=KIND_POLL, text=text, link=own_link,
+            poll_question=q, poll_options=list(opts),
+            source=f"vot eveniment live ({day})"))

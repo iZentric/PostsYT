@@ -16,8 +16,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from .brain import Brain, LLM
-from .models import (Draft, Exemplar, KIND_MEME, KIND_POLL, KIND_QUESTION,
-                     KIND_TREND, KIND_VIDEO, STATUS_APPROVED, STATUS_DRAFT, Video)
+from .models import (Draft, Exemplar, KIND_MEME, KIND_POLL, KIND_QUESTION, KIND_RECAP,
+                     KIND_SCHEDULE, KIND_TREND, KIND_VIDEO, STATUS_APPROVED, STATUS_DRAFT, Video)
+from .scheduler import RO_DAYS
 from .imagemaker import ImageMaker
 from . import feeds as feedmod
 from . import stylelab, trends as trendmod
@@ -59,6 +60,10 @@ class Agent:
                     d.image_path = self.images.for_meme(top, bottom, seed)
                 elif d.kind == KIND_QUESTION:
                     d.image_path = self.images.for_question(first_line, seed)
+                elif d.kind == KIND_RECAP:
+                    d.image_path = self.images.for_recap(first_line, seed)
+                elif d.kind == KIND_SCHEDULE:
+                    d.image_path = self.images.for_schedule(first_line, seed)
                 elif d.kind == KIND_TREND:
                     d.image_path = self.images.for_trend(first_line, seed)
                 else:
@@ -102,6 +107,7 @@ class Agent:
                 new_count += 1
         # anunțăm cele neanunțate (și noul, și "primul video" la prima rulare)
         now = _local_now(self.cfg)
+        self._boost_outliers()
         for row in self.store.unannounced_videos():
             if self.store.published_of_kind_today(KIND_VIDEO) >= 2:
                 break
@@ -118,6 +124,30 @@ class Agent:
             if did and self.cfg.autopublish:
                 self.store.update_draft(did, status=STATUS_APPROVED)
         return new_count
+
+    def _boost_outliers(self) -> None:
+        """Clip care performează peste medie => boost de postare (succesul se amplifică)."""
+        rows = [dict(v) for v in self.store.conn.execute(
+            "SELECT * FROM videos WHERE views IS NOT NULL AND channel_id=?",
+            (self.cfg.own_channel_id,)).fetchall()]
+        if len(rows) < 3:
+            return
+        views = sorted(r["views"] or 0 for r in rows)
+        median = views[len(views) // 2] or 1
+        recent = sorted(rows, key=lambda r: r.get("published") or "", reverse=True)[:3]
+        import statistics
+        for r in recent:
+            if (r["views"] or 0) >= max(median * 2.5, 1000) and not self.store.get_kv("boosted:" + r["id"]):
+                d = self.brain.gen_video_post(
+                    {**r, "url": r["url"], "is_live": 0},
+                    evergreen=None)
+                d.text = ("🚀 Clipul ăsta URCĂ cel mai tare din ultima vreme!\n\n"
+                          + d.text)
+                d.source = f"outlier detectat: {r['views']} viz (medie canal ~{int(median)})"
+                did = self._save_draft(d, "boost", seed=hash(r["id"]) % 9999)
+                if did:
+                    self.store.set_kv("boosted:" + r["id"], 1)
+                    self.store.log(f"🚀 Outlier: «{r['title'][:50]}» are {r['views']} viz — îl impingem cu o postare")
 
     # ------------------------------------------------------------ 2. mirror trigger
     def scan_mirror_posts(self) -> int:
@@ -230,6 +260,37 @@ class Agent:
             if did and self.cfg.autopublish:
                 self.store.update_draft(did, status=STATUS_APPROVED)
 
+        today_ro = RO_DAYS[now.weekday()]
+
+        # F — recap de duminică (formatul #1 al template-ului: "Va MULTUMESC MULT..." )
+        if today_ro == "duminică":
+            did = self._save_draft(self.brain.gen_recap(link), "recap", seed=random.randint(0, 9999))
+            if did:
+                planned += 1
+                self.store.update_draft(did, scheduled_for=next_slot(self.cfg, [17]).astimezone(timezone.utc))
+                if self.cfg.autopublish:
+                    self.store.update_draft(did, status=STATUS_APPROVED)
+
+        # G — anunț de program luni (antrenează audiența: exact mutarea lui JocHorror cu 6.9K likes)
+        if today_ro == "luni":
+            did = self._save_draft(self.brain.gen_schedule(link), "schedule", seed=random.randint(0, 9999))
+            if did:
+                planned += 1
+                self.store.update_draft(did, scheduled_for=next_slot(self.cfg, [12]).astimezone(timezone.utc))
+                if self.cfg.autopublish:
+                    self.store.update_draft(did, status=STATUS_APPROVED)
+
+        # vot eveniment cu o zi înainte de live (comunitatea DECIDE ce jucăm → feed warming + retenție live)
+        tomorrow_ro = RO_DAYS[(now.weekday() + 1) % 7]
+        if tomorrow_ro in (self.cfg.live_days or []) and self.store.published_of_kind_today(KIND_POLL) < 2:
+            d = self.brain.gen_event_poll(link, day=tomorrow_ro)
+            d.scheduled_for = next_slot(self.cfg, [self.cfg.live_hour - 1]).astimezone(timezone.utc)
+            did = self._save_draft(d, "event-poll", seed=random.randint(0, 9999))
+            if did:
+                planned += 1
+                if self.cfg.autopublish:
+                    self.store.update_draft(did, status=STATUS_APPROVED)
+
         # teaser live în zilele de live (cu ~75 min înainte)
         if is_live_day(self.cfg, now):
             teaser_hour = max(0, self.cfg.live_hour - 1)
@@ -275,6 +336,10 @@ class Agent:
                 return self._save_draft(self.brain.gen_meme(link), "meme", seed)
             if kind == KIND_QUESTION:
                 return self._save_draft(self.brain.gen_question(link), "question", seed)
+            if kind == KIND_RECAP:
+                return self._save_draft(self.brain.gen_recap(link), "recap", seed)
+            if kind == KIND_SCHEDULE:
+                return self._save_draft(self.brain.gen_schedule(link), "schedule", seed)
             if kind == KIND_TREND:
                 top = self.store.top_trends(limit=5)
                 if top:

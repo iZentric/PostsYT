@@ -29,14 +29,16 @@ VIDEOS = [
 
 # ---------------- postările reale Community ale lui @JocuriHorrorSky (2026-10-04)
 EXEMPLARS = [
-    ("Va MULTUMESC MULT pentru toata sustinerea de la EPISOADE 🤗💗", 4142, 288, 13),
-    ("Episodul 3 din seria cu CASA din spate... este cam nebun 😂 Tatal Strict e pe combinatii, nu pe salvat copilul ala nebun 😂\n➡️Apare SAMBATA !!!", 7411, 370, 19),
-    ("👀 Fac un EPISOD ca sa va arat cum este VIATA de ADMIN ?", 3375, 298, 12),
     ("Bober", 7863, 456, 16),
-    ("🔥ASTAZI LA ORA 20:00 o sa fie ADMIN ABUSE + UPDATE pe Jocul Meu: DANCE or DIE 🔥", 3385, 103, 17),
+    ("Episodul 3 din seria cu CASA din spate... este cam nebun 😂 Tatal Strict e pe combinatii, nu pe salvat copilul ala nebun 😂\n➡️Apare SAMBATA !!!", 7411, 370, 19),
+    ("Gata de SCOALA ?😎\n➡️Program EPISOADE pe TIMPUL SCOLII:\n👀de LUNI pana VINERI: Episod ZILNIC La ora 18:00 !\n👀SAMBATA-DUMINICA: Episod La ora 12:00 !\n⭐SPOR MAINE in Noul AN SCOLAR !", 6904, 606, 12),
+    ("🔥 UNDE o sa fie URMATORUL EPISOD de HIDE and SEEK ??? 👀", 6295, 525, 18),
     ("Fac EPISODUL 2 din Jocul cu VOCILE ? 👀", 5805, 350, 14),
-    ("Am gasit un secret incredibil in padure 😱 Episodul nou e LIVE pe canal! ➡️", 6200, 401, 20),
-    ("QUIZ: Cati ati vazut toate episoadele din seria cu 99 DE NOPTI ? 👀\nA) Toate ✅\nB) Aproape\nC) Recunosc... niciunul 😂", 4900, 822, 12),
+    ("Va MULTUMESC MULT pentru toata sustinerea de la EPISOADE 🤗", 4142, 288, 13),
+    ("RIP LED 💀", 3614, 234, 21),
+    ("👀 Fac un EPISOD ca sa va arat cum este VIATA de ADMIN ?", 3375, 298, 12),
+    ("🔥ASTAZI LA ORA 20:00 o sa fie ADMIN ABUSE + UPDATE pe Jocul Meu: DANCE or DIE 🔥", 3385, 103, 17),
+    ("⭐ Cum a fost PRIMA ZI de SCOALA ?", 1174, 229, 17),
 ]
 
 # ---------------- trending gaming (din pagina /gaming/trending, 2026-10-04)
@@ -82,10 +84,10 @@ def seed(cfg, store, agent):
                               url=f"https://www.youtube.com/results?search_query={title.replace(' ','+')}",
                               views=views, vph=vph, score=vph, fetched_at=now))
     store.set_kv("learned_hours", [12, 16, 19, 21])
-    store.log("🎬 Date demo reale încărcate — 8 clipuri iSentric, 8 exemplare Jocuri Horror, 16 trenduri")
+    store.log("🎬 Date demo reale încărcate — 8 clipuri iSentric, 10 exemplare Jocuri Horror, 16 trenduri")
 
     # generează câte un draft din fiecare tip (vizibile instant în dashboard)
-    from .models import KIND_VIDEO, KIND_POLL, KIND_MEME, KIND_QUESTION, KIND_TREND
-    for kind in (KIND_VIDEO, KIND_POLL, KIND_MEME, KIND_QUESTION, KIND_TREND):
+    from .models import KIND_VIDEO, KIND_POLL, KIND_MEME, KIND_QUESTION, KIND_TREND, KIND_RECAP, KIND_SCHEDULE
+    for kind in (KIND_VIDEO, KIND_POLL, KIND_MEME, KIND_QUESTION, KIND_TREND, KIND_RECAP, KIND_SCHEDULE):
         agent.force_generate(kind)
-    store.log("🧠 5 drafturi demo generate (câte unul din fiecare tip)")
+    store.log("🧠 7 drafturi demo generate (câte unul din fiecare tip)")

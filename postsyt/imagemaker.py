@@ -207,6 +207,14 @@ class ImageMaker:
         svg = svg_card(text, subtitle="zi-mi în comentarii 👇", badge="VOTEAZĂ", seed=seed)
         return self._save(f"question_{seed}", svg, want_png=True)
 
+    def for_recap(self, text: str, seed: int) -> str:
+        svg = svg_card(text.split("\n")[0][:120], subtitle="recap săptămână 💛", badge="RECAP", seed=seed)
+        return self._save(f"recap_{seed}", svg, want_png=True)
+
+    def for_schedule(self, text: str, seed: int) -> str:
+        svg = svg_card(text.split("\n")[0][:120], subtitle="program săptămânal ⭐", badge="PROGRAM", seed=seed)
+        return self._save(f"schedule_{seed}", svg, want_png=True)
+
     def for_trend(self, hook: str, seed: int) -> str:
         svg = svg_card(hook, subtitle="trend check 🔥", badge="TREND", seed=seed)
         return self._save(f"trend_{seed}", svg, want_png=True)

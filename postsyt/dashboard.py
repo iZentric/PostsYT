@@ -122,6 +122,8 @@ video,img.emoji{vertical-align:middle}
      <button class="btn sm gold" onclick="act('generate','kind=D')">😂 Meme</button>
      <button class="btn sm gold" onclick="act('generate','kind=E')">❓ Întrebare</button>
      <button class="btn sm gold" onclick="act('generate','kind=B')">🔥 Trend</button>
+     <button class="btn sm gold" onclick="act('generate','kind=F')">💛 Recap</button>
+     <button class="btn sm gold" onclick="act('generate','kind=G')">📅 Program</button>
      <button class="btn sm" onclick="act('tick')">⟳ Tick agent</button>
     </span></h2>
    {{drafts_html}}
