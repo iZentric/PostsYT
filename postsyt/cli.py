@@ -1,0 +1,211 @@
+"""CLI PostsYT: python -m postsyt <comanda> [optiuni]"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import threading
+import time
+from datetime import datetime, timezone
+
+
+def _build(cfg_path=None):
+    from .config import load_config
+    from .store import Store
+    from .agent import Agent
+    cfg = load_config(cfg_path)
+    store = Store(cfg.db_path)
+    agent = Agent(cfg, store)
+    return cfg, store, agent
+
+
+def cmd_init(args):
+    from .config import ROOT, default_config_json
+    path = os.path.join(ROOT, "config.json")
+    if os.path.exists(path) and not args.force:
+        print(f"Există deja {path} (folosește --force ca să suprascrii)")
+        return
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(default_config_json())
+    print(f"✅ Config creat: {path}\n   Editează-l după gust (README.md explică fiecare setare).")
+
+
+def cmd_doctor(args):
+    cfg, store, agent = _build(args.config)
+    print("🩺 PostsYT — verificare sistem\n")
+    ok = True
+    # deps opționale
+    for mod, desc in [("PIL", "imagine PNG la upload"), ("playwright", "sondaje native"),
+                      ("requests", "HTTP îmbunătățit"), ("yaml", "config YAML")]:
+        try:
+            __import__(mod)
+            print(f"  ✅ {mod} — {desc}")
+        except ImportError:
+            print(f"  ⚪ {mod} lipsește ({desc}) — opțional")
+    # cookies
+    from .innertube import AuthError, check_auth, load_cookies
+    try:
+        cookies = load_cookies(cfg.cookies_file, cfg.cookies_json)
+        names = {"SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID"} & set(cookies)
+        print(f"  ✅ cookies încărcate ({len(cookies)} buc, chei auth: {', '.join(names) or 'NICIUNA!'})")
+        if not names:
+            ok = False
+        else:
+            good, msg = check_auth(cookies)
+            print(f"  {'✅' if good else '❌'} sesiune YouTube: {msg}")
+            ok = ok and good
+    except AuthError as e:
+        print(f"  ❌ {e}\n     → soluție: python -m postsyt login  SAU export cookies.txt (vezi README)")
+        ok = False
+    except Exception as e:
+        print(f"  ⚠️  nu am putut testa sesiunea (offline?): {e}")
+    # feed
+    try:
+        from . import feeds
+        vids = feeds.fetch_feed(cfg.own_channel_id)
+        print(f"  ✅ feed canal: {len(vids)} clipuri (ultimul: «{vids[0].title[:50]}»)" if vids else "  ⚠️ feed gol")
+    except Exception as e:
+        print(f"  ⚠️  feed canal necitibil acum: {e}")
+    print(f"\n  DB: {cfg.db_path}  ·  imagini: {cfg.images_dir}")
+    print("\nGata de drum! 🚀" if ok else "\nMai ai câțiva pași de configurare (vezi ❌ de mai sus).")
+
+
+def cmd_login(args):
+    from .studio_bot import capture_login_cookies
+    cfg, _, _ = _build(args.config)
+    out = capture_login_cookies(cfg.cookies_json)
+    print(f"✅ Cookies salvate în {out}\n   Rulează: python -m postsyt doctor (verificare)")
+
+
+def cmd_tick(args):
+    cfg, store, agent = _build(args.config)
+    os.environ["POSTSYT_DAEMON"] = "0"
+    rep = agent.tick(quick=args.quick)
+    print(json.dumps(rep, indent=2, ensure_ascii=False))
+
+
+def cmd_daemon(args):
+    cfg, store, agent = _build(args.config)
+    os.environ["POSTSYT_DAEMON"] = "1"
+    store.log("🟢 Daemon pornit")
+    print("🟢 Daemon PostsYT pornit. Ctrl+C pentru stop.")
+    last: dict[str, float] = {"feeds": 0, "mirror": 0, "trends": 0, "plan": 0}
+    try:
+        while True:
+            now = time.time()
+            if now - last["feeds"] >= cfg.feed_check_minutes * 60:
+                agent.scan_own_feed()
+                last["feeds"] = now
+            if now - last["mirror"] >= cfg.mirror_check_minutes * 60:
+                try:
+                    agent.scan_mirror_posts()
+                    agent.learn_schedule()
+                except Exception as e:
+                    store.log(f"mirror scan: {e}", "WARN")
+                last["mirror"] = now
+            if now - last["trends"] >= cfg.trend_check_hours * 3600:
+                try:
+                    agent.scan_trends()
+                except Exception as e:
+                    store.log(f"trend scan: {e}", "WARN")
+                last["trends"] = now
+            if now - last["plan"] >= 30 * 60:
+                agent.plan_daily()
+                last["plan"] = now
+            agent.publish_due()
+            time.sleep(45)
+    except KeyboardInterrupt:
+        store.log("🔴 Daemon oprit de utilizator")
+        print("\n🔴 Oprit.")
+
+
+def cmd_dashboard(args):
+    cfg, store, agent = _build(args.config)
+    from .dashboard import run_dashboard
+    run_dashboard(cfg, store, agent, port=args.port)
+
+
+def cmd_publish(args):
+    cfg, store, agent = _build(args.config)
+    d = store.get_draft(args.id)
+    if not d:
+        print(f"Nu există draftul #{args.id}")
+        return
+    res = agent.publisher.publish(d)
+    print(res)
+
+
+def cmd_generate(args):
+    cfg, store, agent = _build(args.config)
+    kind = args.kind.upper()
+    did = agent.force_generate(kind)
+    if did:
+        d = store.get_draft(did)
+        print(f"✅ Draft #{did} creat:\n\n{d.text}\n\n📷 {d.image_path}")
+    else:
+        print("Nu am putut genera (lipsesc date? fă întâi `tick` cu internet).")
+
+
+def cmd_demo(args):
+    """Seed cu datele reale ale canalului (offline, pentru previzualizare)."""
+    cfg, store, agent = _build(args.config)
+    from .demo_seed import seed
+    seed(cfg, store, agent)
+    print("✅ Date demo încărcate (videoclipuri reale iSentric + stil Jocuri Horror + trenduri).")
+    print("   Deschide dashboardul:  python -m postsyt dashboard")
+
+
+def cmd_export_config(args):
+    from .config import ROOT
+    src = os.path.join(ROOT, "config.example.json")
+    print(open(src, encoding="utf-8").read())
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog="postsyt",
+                                description="⚡ PostsYT — agent de postări YouTube Community pentru iSentric")
+    p.add_argument("--config", help="cale către config.json/yaml", default=None)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("init", help="creează config.json")
+    s.add_argument("--force", action="store_true")
+    s.set_defaults(fn=cmd_init)
+
+    s = sub.add_parser("doctor", help="verifică setup-ul (cookies, feed, deps)")
+    s.set_defaults(fn=cmd_doctor)
+
+    s = sub.add_parser("login", help="deschide browser, salvează cookies.json (Playwright)")
+    s.set_defaults(fn=cmd_login)
+
+    s = sub.add_parser("tick", help="o trecere completă (scanări + planificări + publicări)")
+    s.add_argument("--quick", action="store_true", help="doar feed propriu + plan + publish")
+    s.set_defaults(fn=cmd_tick)
+
+    s = sub.add_parser("daemon", help="rulează continuu (loop)")
+    s.set_defaults(fn=cmd_daemon)
+
+    s = sub.add_parser("dashboard", help="pornește dashboardul web")
+    s.add_argument("--port", type=int, default=None)
+    s.set_defaults(fn=cmd_dashboard)
+
+    s = sub.add_parser("publish", help="publică un draft după ID")
+    s.add_argument("id", type=int)
+    s.set_defaults(fn=cmd_publish)
+
+    s = sub.add_parser("generate", help="generează manual un draft (A/B/C/D/E)")
+    s.add_argument("kind")
+    s.set_defaults(fn=cmd_generate)
+
+    s = sub.add_parser("demo", help="seed demo cu datele reale ale canalului (offline)")
+    s.set_defaults(fn=cmd_demo)
+
+    s = sub.add_parser("show-config", help="afișează configul exemplu")
+    s.set_defaults(fn=cmd_export_config)
+
+    args = p.parse_args(argv)
+    args.fn(args)
+
+
+if __name__ == "__main__":
+    main()

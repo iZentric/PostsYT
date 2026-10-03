@@ -1,0 +1,70 @@
+{
+  "own_channel_id": "UCBoZcTLayAUgYTPsyrStiLg",
+  "own_handle": "@isentric1",
+  "channel_name": "iSentric",
+  "niche": "Minecraft / PokeCity (Pokémoni în Minecraft), gaming funny RO",
+  "collab_names": [
+    "Nocivanu"
+  ],
+  "competitors": [
+    "@JocuriHorrorSky",
+    "@minecraft",
+    "@iRaffael",
+    "@BobaLucs",
+    "@Jakey",
+    "@Beeaaaa",
+    "@Cristineel",
+    "@Adizece",
+    "@mariusiancuplays6247",
+    "@Broscutul",
+    "@Nocivanu",
+    "@Klorna2.0",
+    "@Hee8loveMC",
+    "@Izentricfanreal67",
+    "@tonelaaaa",
+    "@NocivanuExtra"
+  ],
+  "mirror_channel": "@JocuriHorrorSky",
+  "mirror_delay_minutes": 45,
+  "watch_gaming_trending": true,
+  "max_posts_per_day": 3,
+  "min_gap_minutes": 90,
+  "quiet_hours": [
+    0,
+    8
+  ],
+  "poll_hours": [
+    19
+  ],
+  "meme_hours": [
+    16,
+    21
+  ],
+  "daytime_slots": [
+    12,
+    16,
+    19,
+    21
+  ],
+  "live_days": [
+    "marți",
+    "joi",
+    "sâmbătă"
+  ],
+  "live_hour": 18,
+  "llm_enabled": false,
+  "llm_base_url": "https://api.openai.com/v1",
+  "llm_model": "gpt-4o-mini",
+  "llm_api_key_env": "OPENAI_API_KEY",
+  "llm_max_chars": 900,
+  "publish_driver": "innertube",
+  "autopublish": false,
+  "experimental_innertube_polls": false,
+  "cookies_file": "data/cookies.txt",
+  "cookies_json": "data/cookies.json",
+  "feed_check_minutes": 15,
+  "mirror_check_minutes": 20,
+  "trend_check_hours": 6,
+  "timezone": "Europe/Bucharest",
+  "dashboard_port": 8787
+}

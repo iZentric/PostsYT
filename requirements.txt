@@ -1,0 +1,6 @@
+# Nucleu: doar Python 3.10+ stdlib (nimic obligatoriu aici).
+# Extra-uri recomandate pe mașina ta:
+pillow>=10.0        # export PNG pentru uploadul imaginilor pe YouTube
+cairosvg>=2.7       # SVG -> PNG de calitate (altfel se folosește fallback Pillow)
+playwright>=1.40    # sondaje Community native + capturarea cookie-urilor la login
+pyyaml>=6.0         # dacă preferi config.yaml în loc de config.json
