@@ -15,19 +15,27 @@ postări pe tab-ul Community (text + imagine + sondaje + link), urmărind:
 
 ---
 
-## 🚀 Quickstart (5 minute)
+## 🚀 Quickstart pe PC (Windows, 5 minute)
 
-### 1. Instalează
+1. **Instalează Python 3.10+** de pe [python.org/downloads](https://www.python.org/downloads/)
+   → la instalare **bifează ✅ „Add Python to PATH”** (foarte important!).
+2. **Descarcă proiectul:** butonul verde „Code → Download ZIP” din
+   [GitHub — repo-ul tău PostsYT](https://github.com/iZentric/PostsYT) (sau `git clone …`) → extragi undeva, ex. `C:\PostsYT`.
+3. **Dublu-click pe `PORNESTE-POSTSYT.bat`** — atât:
+   - prima dată îți deschide browser să te loghezi pe YouTube (1 singură dată),
+   - apoi pornește **agentul + dashboardul** la adresa **http://localhost:8787**.
 
+Lasă fereastra neagră deschisă cât vrei să posteze automat. O închizi → se oprește.
+Vrei să posteze și noaptea? Lasă PC-ul pornit peste noapte, sau pune-l pe un mini-PC/VPS.
+
+### Opțional (recomandat pentru calitate maximă)
+Deschide `PORNESTE-POSTSYT.bat` cu Notepad și șterge `REM ` din fața rândului cu
+`pip install pillow cairosvg playwright` → imagini PNG reale la upload + sondaje native.
+
+### Linux / macOS
 ```bash
-git clone <repo-ul> && cd PostsYT
-python --version        # 3.10+
-# opțional dar recomandat (imagini PNG la upload + sondaje reale):
-pip install pillow cairosvg playwright
-playwright install chromium
+chmod +x PORNESTE-POSTSYT.sh && ./PORNESTE-POSTSYT.sh
 ```
-
-Nucleul agentului merge **fără nicio dependință externă** (doar Python stdlib).
 
 ### 2. Autentificare (o singură dată)
 
