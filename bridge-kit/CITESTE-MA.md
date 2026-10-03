@@ -9,13 +9,20 @@
 | `PROMPT-UNIVERSAL.md` | **Comoara**: text gata de lipit în ORICE chat cu un agent AI → agentul îți folosește PC-ul imediat |
 | `BRIDGE-PROTOCOL.md` | Documentația completă a protocolului (pentru curioși / proiecte proprii) |
 
-## Instalare în 60 de secunde
+## Instalare — un singur dublu-click (ZERO tastare)
 
-1. Dublu-click `INSTALEAZA-BRIDGE.bat` (pc_bridge.py trebuie să fie lângă el ✅)
-2. Completezi cele 2 valori de mai jos (le ai deja, sunt ale tale)
-3. La „nume" apeși doar Enter
+Pachetul tău vine cu `postsyt-bridge.ini` deja completat cu datele tale:
+1. Dezarhivezi ZIP-ul oriunde (ex: Desktop)
+2. Dublu-click pe `INSTALEAZA-BRIDGE.bat`
+3. GATA. Se instalează singur, pornește singur la fiecare boot și rulează acum invizibil.
 
-## Valorile tale (copiază-le exact)
+Verificare: deschide `http://localhost:8787` în browser (după ce ai pornit și
+agentul cu `PORNESTE-POSTSYT.bat`) → sus scrie **🌉 PC Bridge ONLINE**.
+
+*(Când facem serverul VPS, schimbi doar rândul `server = ...` din
+`%USERPROFILE%\PostsYT-Bridge\postsyt-bridge.ini` cu IP-ul serverului.)*
+
+## Valorile tale (referință, NU trebuie să le tastezi)
 
 ### Pentru agentul PostsYT care rulează PE PC-UL TĂU (test local)
 ```

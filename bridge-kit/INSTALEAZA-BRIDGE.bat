@@ -30,6 +30,13 @@ if exist "%~dp0..\bridge\pc_bridge.py" (
   copy /y "%~dp0pc_bridge.py" "%DEST%\pc_bridge.py" >nul
 )
 
+REM daca exista postsyt-bridge.ini gata completat langa bat -> ZERO intrebari
+if exist "%~dp0postsyt-bridge.ini" (
+  copy /y "%~dp0postsyt-bridge.ini" "%DEST%\postsyt-bridge.ini" >nul
+  echo ✔ Folosesc configuratia gata facuta din postsyt-bridge.ini — fara intrebari.
+  goto DUPA_INI
+)
+
 set /p SERVER="Adresa serverului (ex: http://80.240.24.15:8787): "
 set /p SECRET="Secret (bridge_secret din config.json de pe server): "
 set /p PCNAME="Numele acestui PC [apasă Enter = %COMPUTERNAME%]: "
@@ -40,6 +47,7 @@ if "%PCNAME%"=="" set "PCNAME=%COMPUTERNAME%"
 >>"%DEST%\postsyt-bridge.ini" echo secret = %SECRET%
 >>"%DEST%\postsyt-bridge.ini" echo name = %PCNAME%
 >>"%DEST%\postsyt-bridge.ini" echo agent = postsyt
+:DUPA_INI
 
 REM prefer pythonw (fără fereastră); altfel python
 set "PYW=pythonw"
