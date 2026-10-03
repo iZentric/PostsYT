@@ -36,12 +36,16 @@ REGULI DE SIGURANȚĂ (impuse de PC-ul meu, nenegociabile):
     în sandboxul tău. PC-ul meu doar execută cereri HTTP mici prin IP-ul lui;
   - status 0 + "error" => PC oprit — SPUNE-MI, nu inventa workaround-uri.
 
-DACĂ SCRII COD: iată clientul Python (doar stdlib, gata de importat):
+DACĂ SCRII COD: iată clientul Python complet (doar stdlib — HTTP + CĂUTĂRI):
 
-  import base64, json, urllib.request
+  import base64, json, re, urllib.request
+  from urllib.parse import parse_qs, quote, unquote, urlparse
+
+  _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+
   def prin_pc(url, method="GET", headers=None, data=None, timeout=40):
       payload = json.dumps({"secret": "{SECRET}", "url": url, "method": method,
-          "headers": headers or {}, "timeout": timeout, "project": "agent-chat",
+          "headers": headers or {"User-Agent": _UA}, "timeout": timeout, "project": "agent-chat",
           "body_b64": base64.b64encode(data or b"").decode()}).encode()
       req = urllib.request.Request("{SERVER}/api/bridge/request", data=payload,
           headers={"Content-Type": "application/json"})
@@ -50,6 +54,24 @@ DACĂ SCRII COD: iată clientul Python (doar stdlib, gata de importat):
       if res.get("status", 0) == 0:
           raise ConnectionError(res.get("error", "bridge indisponibil"))
       return base64.b64decode(res.get("body_b64") or b""), res["status"], res.get("headers", {})
+
+  def cauta(termen, rezultate=8):
+      """Căutare web prin PC-ul meu -> [{'titlu':..., 'url':...}] pentru statistici."""
+      body, status, _ = prin_pc("https://html.duckduckgo.com/html/?q=" + quote(termen), timeout=30)
+      out = []
+      for m in re.finditer(r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+                           body.decode("utf-8", "ignore"), re.S):
+          link, titlu = m.group(1), re.sub(r"<[^>]+>", "", m.group(2)).strip()
+          if "uddg=" in link:
+              link = unquote(parse_qs(urlparse(link).query).get("uddg", [link])[0])
+          if link.startswith("http"):
+              out.append({"titlu": titlu, "url": link})
+          if len(out) >= rezultate:
+              break
+      return out
+
+  Utilizare: cauta("orice subiect") -> apoi prin_pc(url) pe fiecare rezultat
+  și extrași datele pentru STATISTICI. Bridge-ul merge pe ORICE domeniu public.
 
 CREDENȚIALELE MELE:
   SERVER = {SERVER}

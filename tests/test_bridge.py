@@ -118,6 +118,21 @@ class ProxyLockTest(unittest.TestCase):
         self.assertFalse(default("https://example.com/"))
 
 
+class AgentClientTest(unittest.TestCase):
+    def test_parser_cautari(self):
+        from bridge import agent_client
+        fixture = '''
+        <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexemplu.ro%2Fpagina&rut=ab12">Titlu <b>important</b></a>
+        <a class="result__a" href="https://direct.com/y">Legatură directă</a>
+        <a class="result__a" href="javascript:void(0)">fără link real</a>
+        '''
+        res = agent_client.extrage_rezultate_ddg(fixture.encode())
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[0], {"titlu": "Titlu important",
+                                  "url": "https://exemplu.ro/pagina"})
+        self.assertEqual(res[1]["url"], "https://direct.com/y")
+
+
 class PublisherBridgeTest(unittest.TestCase):
     class StubHub:
         enabled = True
