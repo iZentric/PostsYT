@@ -66,5 +66,6 @@
   "mirror_check_minutes": 20,
   "trend_check_hours": 6,
   "timezone": "Europe/Bucharest",
-  "dashboard_port": 8787
+  "dashboard_port": 8787,
+  "bridge_secret": "d61a087bbd162d9692d0b96850ebd04a"
 }
