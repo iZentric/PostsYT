@@ -29,9 +29,12 @@ YouTube/Google cu IP-ul meu sau sesiunea mea:
     - status 0 + "error" = PC oprit/timeout/refuz — SPUNE-MI și oprește-te,
       nu ocoli silențios bridge-ul.
 
-REGULI DE SIGURANȚĂ (impuse de PC, nenegociabile):
-  sunt permise DOAR domeniile *.youtube.com, *.googleapis.com, *.ggpht.com,
-  *.ytimg.com. Orice alt domeniu e refuzat automat de PC. Nu încerca ocoliri.
+REGULI DE SIGURANȚĂ (impuse de PC-ul meu, nenegociabile):
+  - PC-ul rulează cu ACCESS TOTAL (allow=*): poți folosi ORICE domeniu public;
+  - localhost / LAN / router sunt blocate hardware — nu încerca;
+  - GREUL STĂ LA TINE: procesare, AI, stocare, planificare — pe serverul tău/
+    în sandboxul tău. PC-ul meu doar execută cereri HTTP mici prin IP-ul lui;
+  - status 0 + "error" => PC oprit — SPUNE-MI, nu inventa workaround-uri.
 
 DACĂ SCRII COD: iată clientul Python (doar stdlib, gata de importat):
 

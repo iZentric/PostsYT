@@ -10,8 +10,9 @@ acasă (cu sesiunea ta YouTube, dacă serverul îi trimite header-ele) și
 
 Siguranță:
   - fără secretul partajat, taskurile sunt refuzate de server;
-  - PC-ul execută doar cereri către YouTube/Google (lista de mai jos) —
-    nimeni nu te poate folosi ca proxy spre internet.
+  - proxy-lock configurabil («allow» din ini): implicit doar YouTube/Google;
+    cu «allow = *» agenții tăi pot folosi ORICE domeniu public.
+  - localhost/LAN/router BLOCATE MEREU, indiferent de setare.
 
 Rulare manuală:
   python pc_bridge.py --server http://IP-SERVER:8787 --secret SECRETUL
@@ -41,12 +42,46 @@ from urllib.parse import urlparse
 ALLOWED_HOSTS = ("youtube.com", "googleapis.com", "ggpht.com", "ytimg.com")
 
 
+def _is_private(host: str) -> bool:
+    """localhost / LAN / router — BLOCAT MEREU, chiar și cu allow=*.
+    (protejează routerul și device-urile din rețeaua ta, indiferent de setare)"""
+    import ipaddress
+    h = host.lower()
+    if h in ("localhost",) or h.endswith(".localhost"):
+        return True
+    try:
+        ip = ipaddress.ip_address(h)
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast
+    except ValueError:
+        return False  # nume de domeniu public — OK
+
+
+def make_checker(allow_spec: str | None):
+    """Fabrică de filtru. allow_spec:
+       None/'' -> doar YouTube/Google (implicit, maxim de sigur)
+       'a.com,b.com' -> doar acele domenii (+ subdomenii)
+       '*' -> ORICE domeniu public (localhost/LAN rămân mereu blocate)"""
+    if allow_spec is None or not str(allow_spec).strip():
+        allow_spec = ",".join(ALLOWED_HOSTS)
+    raw = [p.strip().lower() for p in str(allow_spec).split(",") if p.strip()]
+    allow_all = "*" in raw
+    parts = {p[1:].lstrip(".") if p.startswith("*") else p for p in raw if p != "*"}
+
+    def ok(url: str) -> bool:
+        host = (urlparse(url).hostname or "").lower()
+        if not host or _is_private(host):
+            return False
+        if allow_all:
+            return True
+        return any(host == h or host.endswith("." + h) for h in parts)
+
+    ok.allow_all = allow_all
+    return ok
+
+
 def host_allowed(url: str) -> bool:
-    """True doar dacă URL-ul aparține YouTube/Google (proxy-lock)."""
-    host = (urlparse(url).hostname or "").lower()
-    if not host:
-        return False
-    return any(host == h or host.endswith("." + h) for h in ALLOWED_HOSTS)
+    """Compat: verificare cu lista implicită YouTube/Google."""
+    return make_checker(None)(url)
 
 
 HOP_BY_HOP = {"host", "content-length", "connection", "keep-alive",
@@ -60,9 +95,10 @@ def log(msg: str) -> None:
 
 class PcBridge:
     def __init__(self, server: str, secret: str, name: str = "PC",
-                 agent: str = "postsyt", wait: int = 50):
+                 agent: str = "postsyt", wait: int = 50, allow: str | None = None):
         self.server = server.rstrip("/")
         self.secret, self.name, self.agent, self.wait = secret, name, agent, wait
+        self._ok = make_checker(allow)
         self.done_tasks = 0
 
     # ---------------- HTTP către server (dashboardul agentului)
@@ -84,7 +120,7 @@ class PcBridge:
     # ---------------- execuția taskului pe PC (ieșire prin IP-ul tău)
     def _execute(self, task: dict) -> dict:
         url = task.get("url", "")
-        if not host_allowed(url):
+        if not self._ok(url):
             return {"status": 0, "error": f"refuzat de PC: domeniu nepermis ({url[:80]})"}
         body = base64.b64decode(task.get("body_b64") or b"")
         headers = {k: v for k, v in (task.get("headers") or {}).items()
@@ -110,6 +146,9 @@ class PcBridge:
     # ---------------- bucla principală
     def run(self) -> None:
         log(f"🌉 PC Bridge «{self.name}» plecat → {self.server} (agent: {self.agent})")
+        if self._ok.allow_all:
+            log("   ⚠️  Mod ACCES TOTAL (allow=*) activ: agenții pot folosi ORICE domeniu public.")
+            log("       Routerul/localhost rămân blocate oricum. Restricție: editează 'allow' din ini.")
         log("   Fără ecran. Îl poți lăsa să ruleze — nu consumă nimic. Ctrl+C ca să oprești.")
         fails = 0
         while True:
@@ -152,6 +191,7 @@ def load_and_run() -> None:
     p.add_argument("--server"); p.add_argument("--secret")
     p.add_argument("--name", default=None); p.add_argument("--agent", default=None)
     p.add_argument("--wait", type=int, default=None)
+    p.add_argument("--allow", help="domenii permise separate prin virgulă, sau * = orice")
     p.add_argument("--config", help="cale către postsyt-bridge.ini")
     args = p.parse_args()
 
@@ -171,6 +211,7 @@ def load_and_run() -> None:
     name = args.name or ini.get("name", socket.gethostname() or "PC")
     agent = args.agent or ini.get("agent", "postsyt")
     wait = args.wait or int(ini.get("wait", 50))
+    allow = args.allow if args.allow is not None else ini.get("allow", None)
 
     if not server or not secret:
         print("Completează datele de conectare (le găsești după instalarea serverului):")
@@ -179,7 +220,7 @@ def load_and_run() -> None:
         if not server or not secret:
             sys.exit("Lipsește serverul sau secretul.")
 
-    PcBridge(server, secret, name=name, agent=agent, wait=min(wait, 55)).run()
+    PcBridge(server, secret, name=name, agent=agent, wait=min(wait, 55), allow=allow).run()
 
 
 if __name__ == "__main__":

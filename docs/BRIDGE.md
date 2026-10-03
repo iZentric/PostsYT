@@ -21,10 +21,13 @@ PC-ul TĂU (pc_bridge.py) ── execută HTTP local ──┘  → răspuns în
 
 1. **Secret partajat** (`bridge_secret` în `config.json` de pe server): fără el nu
    poți nici lua taskuri, nici livra rezultate, nici cere execuții.
-2. **Proxy-lock pe PC**: `pc_bridge.py` execută **doar** cereri spre
-   `*.youtube.com`, `*.googleapis.com`, `*.ggpht.com`, `*.ytimg.com`.
-   Orice altceva e refuzat *de PC* — chiar dacă cineva ar compromite serverul,
-   PC-ul tău nu poate deveni proxy general spre internet.
+2. **Proxy-lock pe PC, configurabil** (`allow` în `postsyt-bridge.ini`):
+   - implicit (gol): doar `*.youtube.com`, `*.googleapis.com`, `*.ggpht.com`, `*.ytimg.com`
+   - listă proprie: `allow = github.com, python.org`
+   - `allow = *`: **acces total** la orice domeniu public — agenții tăi pot
+     folosi PC-ul ca releu pentru orice proiect
+   - **localhost / LAN / router blocate MEREU**, indiferent de setare
+     (SSRF-floor: nimeni nu-ți atinge routerul sau device-urile din rețea)
 
 ## Pornire rapidă
 

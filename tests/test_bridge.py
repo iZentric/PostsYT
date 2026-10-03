@@ -82,7 +82,7 @@ class TransportTest(unittest.TestCase):
 
 
 class ProxyLockTest(unittest.TestCase):
-    def test_allowlist(self):
+    def test_allowlist_default_youtube_google(self):
         from bridge.pc_bridge import host_allowed
         ok = ["https://www.youtube.com/feed",
               "https://youtubei.googleapis.com/youtubei/v1/browse",
@@ -95,6 +95,27 @@ class ProxyLockTest(unittest.TestCase):
             self.assertTrue(host_allowed(u), u)
         for u in nu:
             self.assertFalse(host_allowed(u), u)
+
+    def test_allow_star_orice_public_dar_lan_blocat(self):
+        from bridge.pc_bridge import make_checker
+        ok = make_checker("*")
+        self.assertTrue(ok.allow_all)
+        for u in ["https://example.com/x", "https://api.github.com", "https://reddit.com/r/all"]:
+            self.assertTrue(ok(u), u)
+        # LAN/localhost NU se deblochează niciodată, nici cu *
+        for u in ["http://127.0.0.1/", "http://localhost:8080", "http://192.168.1.1/",
+                  "http://10.0.0.5", "http://172.16.0.1", "http://169.254.1.1", "http://[::1]/"]:
+            self.assertFalse(ok(u), u)
+
+    def test_allow_lista_custom_si_gol_revine_la_default(self):
+        from bridge.pc_bridge import make_checker
+        ok = make_checker("github.com, python.org")
+        self.assertTrue(ok("https://api.github.com/x"))
+        self.assertTrue(ok("https://python.org"))
+        self.assertFalse(ok("https://www.youtube.com/"))
+        default = make_checker("")
+        self.assertTrue(default("https://www.youtube.com/"))
+        self.assertFalse(default("https://example.com/"))
 
 
 class PublisherBridgeTest(unittest.TestCase):

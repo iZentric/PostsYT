@@ -48,7 +48,11 @@ Le înlocuiești ulterior în `%USERPROFILE%\PostsYT-Bridge\postsyt-bridge.ini` 
 ## Siguranță (rezumat)
 
 - Fără `SECRET`, nimeni nu-ți poate trimite taskuri.
-- PC-ul execută **doar** domenii YouTube/Google — restul le refuză singur.
+- Configul tău vine cu `allow = *` (**acces total** la domenii publice — așa
+  ai cerut: orice agent, orice proiect). Routerul și device-urile din rețea
+  (localhost/LAN) rămân blocate MEREU, nu se pot ocoli.
+- Vrei să restrângi? Editezi o singură linie în ini:
+  `allow = youtube.com,googleapis.com`
 - Oprire oricând: Task Scheduler → „PostsYT PC Bridge" → Dezactivează.
 
 ## Când vrei ca un ALT agent (alt chat) să-ți folosească PC-ul
