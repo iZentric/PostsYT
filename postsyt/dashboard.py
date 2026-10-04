@@ -129,6 +129,11 @@ video,img.emoji{vertical-align:middle}
      <button class="btn sm" onclick="act('tick')">⟳ Tick agent</button>
      <a class="btn sm gold" href="/kit" title="Un click => tot textul cu date reale + secrete pentru ORICE agent (chiar si cu sandbox blocat)">📦 KIT AGENȚI</a>
     </span></h2>
+   <div class="row" style="flex-direction:column;align-items:stretch;gap:6px;margin-bottom:10px">
+    <textarea id="newdraft" rows="3" style="width:100%;background:#0e1420;color:#e8eef6;border:1px solid #233;border-radius:8px;padding:8px" placeholder="✍️ Lipește aici o postare curată (de la orice agent sau scrisă de tine) → devine draft gata de Aprobat ✔"></textarea>
+    <input id="newpoll" style="width:100%;background:#0e1420;color:#e8eef6;border:1px solid #233;border-radius:8px;padding:8px" placeholder="(opțional) variante de sondaj separate prin virgulă: ex: Pika, Bob rău, toată lumea 😈">
+    <button class="btn sm gold" onclick="addDraft()">➕ Pune în Drafturi</button>
+   </div>
    {{drafts_html}}
   </div>
  </div>
@@ -157,6 +162,12 @@ async function actId(a, id){
 async function saveEdit(id){
  const t = document.getElementById('t'+id).value;
  await fetch('/action/edit?id='+id, {method:'POST', body: JSON.stringify({text:t})});
+ location.reload();
+}
+async function addDraft(){
+ const t = document.getElementById('newdraft').value.trim(); if(!t){return;}
+ const po = document.getElementById('newpoll').value.split(',').map(s=>s.trim()).filter(Boolean);
+ await fetch('/action/add?id=0', {method:'POST', body: JSON.stringify({text:t, kind: po.length?'C':'A', poll_options: po})});
  location.reload();
 }
 setTimeout(()=>{ if(!document.querySelector('details[open]')) location.reload(); }, 45000);
@@ -646,6 +657,21 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                         if payload.get("text"):
                             store.update_draft(did, text=payload["text"])
                             store.log(f"✏️ Draft #{did} editat")
+                    elif action == "add":
+                        length = int(self.headers.get("Content-Length", 0))
+                        payload = json.loads(self.rfile.read(length) or b"{}")
+                        text = str(payload.get("text", "")).strip()[:2000]
+                        if text:
+                            from .models import Draft
+                            opts = [str(o)[:80] for o in (payload.get("poll_options") or []) if str(o).strip()][:8]
+                            ndid = store.add_draft(Draft(
+                                kind="C" if opts else "A",
+                                text=text,
+                                poll_question=(text.split("\n")[0][:140] if opts else ""),
+                                poll_options=opts,
+                                source="manual-dashboard"))
+                            store.log(f"➕ Draft #{ndid} adăugat manual din dashboard"
+                                      + (f" (sondaj, {len(opts)} opțiuni)" if opts else ""))
                     elif action == "tick":
                         agent.tick(quick=True)
                     elif action == "refresh":
