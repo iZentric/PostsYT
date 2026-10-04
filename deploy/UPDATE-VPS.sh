@@ -56,3 +56,13 @@ echo "════════ VERIFICARE ════════"
 "$PYBIN" -m postsyt analytics || echo "⚠️ analytics a întâmpinat o problemă (vezi mai sus)"
 echo "═══════════════════════════"
 echo "✅ ACTUALIZARE COMPLETĂ — serverul e la zi"
+
+# ---- auto-update zilnic: DE AZI serverul se actualizează SINGUR, fără consolă ----
+if [ -f "$APP/deploy/AUTO-UPDATE.sh" ]; then
+  chmod +x "$APP/deploy/AUTO-UPDATE.sh"
+  cat > /etc/cron.d/postsyt-auto-update <<'CRON'
+SHELL=/bin/sh
+17 5 * * * root bash /opt/postsyt/app/deploy/AUTO-UPDATE.sh
+CRON
+  echo "🤖 cron instalat: auto-update zilnic (05:17) — de azi nu mai rulezi nimic pe server"
+fi
