@@ -46,6 +46,12 @@ class Publisher:
     def _innertube(self, allow_bridge: bool = True):
         """Returnează (client, tag). Tag "+bridge" când iese prin PC-ul de acasă."""
         from .innertube import InnertubeClient, load_cookies
+        if (allow_bridge and getattr(self.cfg, "bridge_only", False)
+                and self.hub and self.hub.enabled and not self._bridge_online()):
+            raise RuntimeError(
+                "bridge_only activ: PC-ul e oprit, deci NU public de pe IP de datacenter. "
+                "Publicarea se reia singură când revine bridge-ul (sau setezi bridge_only "
+                "pe false în config.json).")
         if allow_bridge and self._bridge_online():
             if self._client_bridge is None:
                 cookies = load_cookies(self.cfg.cookies_file, self.cfg.cookies_json)

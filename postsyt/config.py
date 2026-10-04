@@ -67,6 +67,7 @@ class Config:
     # PC Bridge universal (vezi docs/BRIDGE.md) — agentul cere, PC-ul execută
     bridge_secret: str = ""            # setat => hub-ul acceptă PC-uri bridge
     publish_via_bridge: bool = True    # publică de pe IP-ul de acasă când bridge-ul e online
+    bridge_only: bool = False          # True = NICIODATĂ de pe server; doar prin PC (garanție "ca pe PC")
 
     @staticmethod
     def default() -> "Config":

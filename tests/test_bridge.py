@@ -242,6 +242,16 @@ class PublisherBridgeTest(unittest.TestCase):
         self.assertNotIn("bridge", res.mode)
         self.assertEqual(res.post_id, "pid_direct")
 
+    def test_bridge_only_refuza_serverul(self):
+        pub = self._publisher()
+        pub.cfg.bridge_only = True
+        pub.set_hub(self.StubHub(lambda m, u, h, b: None, online=False))
+        try:
+            pub._innertube()
+            self.fail("bridge_only trebuia sa refuze")
+        except RuntimeError as e:
+            self.assertIn("bridge_only", str(e))
+
     def test_bridge_cade_fallback_direct(self):
         def boom(method, url, headers, body):
             raise ConnectionError("PC oprit brusc")
