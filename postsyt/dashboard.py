@@ -127,6 +127,7 @@ video,img.emoji{vertical-align:middle}
      <button class="btn sm gold" onclick="act('generate','kind=F')">💛 Recap</button>
      <button class="btn sm gold" onclick="act('generate','kind=G')">📅 Program</button>
      <button class="btn sm" onclick="act('tick')">⟳ Tick agent</button>
+     <a class="btn sm gold" href="/kit" title="Un click => tot textul cu date reale + secrete pentru ORICE agent (chiar si cu sandbox blocat)">📦 KIT AGENȚI</a>
     </span></h2>
    {{drafts_html}}
   </div>
@@ -360,6 +361,16 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             self.send_header("Content-Length", "0")
             self.end_headers()
 
+        def _kit_page(self):
+            """Pagina cu textul-complet-pentru-agenți (un click => Paste oriunde)."""
+            host = self.headers.get("Host", "localhost:8787")
+            scheme = "https" if "trycloudflare.com" in host else "http"
+            base = f"{scheme}://{host}"
+            import html as _html
+            text = _kit_agent_text(cfg, base, getattr(cfg, "bridge_secret", "") or "")
+            store.log("📦 KIT agenți copiat de proprietar")
+            self._send(_KIT_HTML.replace("{{KIT}}", _html.escape(text)))
+
         def _send(self, text: str, ctype="text/html; charset=utf-8", code=200):
             body = text.encode("utf-8")
             self.send_response(code)
@@ -545,6 +556,9 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             if not self._authed():
                 self._login_page()
                 return
+            if u.path == "/kit":
+                self._kit_page()
+                return
             if u.path == "/" or u.path == "/index.html":
                 self._send(dash.render())
             elif u.path.startswith("/img/"):
@@ -645,6 +659,87 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             self._send("ok", "text/plain")
 
     return Handler
+
+
+def _kit_agent_text(cfg, base: str, secret: str) -> str:
+    """Textul complet pe care proprietarul IL COPIAZĂ dintr-un click și îl dă ORICĂRUI
+    agent — inclusiv celor cu sandbox blocat, pentru că DATA REALA E ATASATA IN TEXT."""
+    parti: list[str] = []
+    parti.append(
+        "Ești conectat la infrastructura mea personală de conținut (canal YouTube "
+        "@isentric1, Minecraft/Pokemoni RO, public școlari). Ai două moduri de lucru:\n"
+        " A) DIRECT — apelezi endpointurile de mai jos (POST, JSON) dacă poți face "
+        "cereri HTTP din mediul tău;\n"
+        " B) FĂRĂ REȚEA — dacă sandboxul tău blochează HTTP, răspunzi STRICT pe baza "
+        "DATELOR REALE atașate la finalul acestui text și spui clar «am răspuns pe "
+        "datele atașate». NU pretinde că ai apelat API-ul.\n\n"
+        f"BASE = {base}\nSECRET = {secret}\n\n"
+        "ENDPOINTURI (POST cu JSON):\n"
+        "🔍 căutare web:        {BASE}/api/bridge/search   {\"secret\": SECRET, \"q\": \"...\", \"limit\": 8}\n"
+        "📊 analytics canal:    {BASE}/api/agent/analytics {\"secret\": SECRET}\n"
+        "🔬 deep stats/clip:    {BASE}/api/agent/deepstats {\"secret\": SECRET, \"limit\": 8, \"transcripts\": true}\n"
+        "🕳️ deep search (citește paginile): {BASE}/api/agent/deepsearch {\"secret\": SECRET, \"q\": \"...\", \"k\": 3}\n"
+        "🌐 fetch arbitrar:     {BASE}/api/bridge/request  {\"secret\": SECRET, \"method\": \"GET\", \"url\": \"...\"}\n\n"
+        "ACȚIUNI PE CANAL (tot ce e public = aprobarea MEa, fără excepții):\n"
+        "✍️ postări comunitate: pregătești textul (română energică, CTA cu întrebări/"
+        "alegeri, ZERO linkuri vizibile) și mi-l arăți.\n"
+        "💬 comentarii: din datele atașate alegi la ce răspundem; scrii planul JSON "
+        "personalizat (max 2 propoziții + max 1 emoji, stil coleg de gaming).\n"
+        "🎬 upload: pregătești titlu+descriere+taguri complete; public doar cu «DA».\n\n"
+        "REGULI DE FIER: doar date reale (lipsește cifra = spui «lipsesc datele»); "
+        "secretele de aici nu se împart cu nimeni; nimic inventat.\n"
+        "Confirmă cu «CONECTAT ⚡» și zi din ce mod lucrezi (A sau B).\n"
+        .replace("{BASE}", base))
+
+    def _atsajeaza(titlu: str, path: str, taieri) -> None:
+        if not path or not os.path.exists(path):
+            parti.append(f"\n===== {titlu}: LIPSEȘTE (încă) =====\n")
+            return
+        try:
+            data = json.load(open(path, encoding="utf-8"))
+            taieri(data)
+            parti.append(f"\n===== {titlu} =====\n"
+                         + json.dumps(data, ensure_ascii=False, indent=1)[:7000])
+        except Exception as e:  # noqa: BLE001
+            parti.append(f"\n===== {titlu}: eroare citire {str(e)[:80]} =====\n")
+
+    ddir = getattr(cfg, "data_dir", "data")
+    _atsajeaza("DATE REALE: ANALYTICS CANAL", os.path.join(ddir, "analytics_latest.json"),
+               lambda d: d.update(video_recente=(d.get("video_recente") or [])[:14]))
+    _atsajeaza("DATE REALE: DEEP STATS (transcripturi + top comentarii)",
+               os.path.join(ddir, "deepstats_latest.json"),
+               lambda d: [v.update(transcript=((v.get("transcript") or {}).get("text", "")[:900]
+                                               + ("…" if (v.get("transcript") or {}).get("trunchiat") else ""))
+                                   if v.get("transcript") else None)
+                          for v in (d.get("videoclipuri") or [])])
+    def _curata_comentarii(d):
+        d["threaduri_raspundibile"] = [
+            {k: t.get(k) for k in ("video_titlu", "autor", "text", "publicat", "likes")}
+            for t in (d.get("threaduri_raspundibile") or [])]
+    _atsajeaza("DATE REALE: COMENTARII care așteaptă răspuns",
+               os.path.join(ddir, "comments.json"), _curata_comentarii)
+    return "\n".join(parti)
+
+
+_KIT_HTML = """<!doctype html><html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>📦 KIT AGENȚI — PostsYT</title><style>
+body{background:#0b0f14;color:#e8eef6;font:15px/1.5 system-ui;padding:26px;max-width:900px;margin:auto}
+textarea{width:100%;height:60vh;background:#0e1420;color:#cfe3ff;border:1px solid #233;border-radius:10px;padding:12px;font:12.5px/1.45 ui-monospace,monospace}
+button{background:#f5b942;border:0;border-radius:10px;padding:12px 22px;font-weight:700;font-size:16px;cursor:pointer}
+.note{color:#8fa4bd;font-size:13px;margin:10px 0 16px} b{color:#f5b942}
+a{color:#7dd3fc}</style></head><body>
+<h1>📦 KIT AGENȚI — un click, orice agent primește TOTUL</h1>
+<p class="note">Apasă butonul → lipești în ORICE chat de AI (chiar și cele cu internet blocat — datele reale sunt deja în text).
+<b>Nu împărtăși textul altor oameni</b> — conține secretul tău. <a href="/">← înapoi la dashboard</a></p>
+<textarea id="kit" readonly>{{KIT}}</textarea>
+<p><button onclick="copieaza()">📋 COPIAZĂ TOT KIT-UL</button> <span id="ok" class="note"></span></p>
+<script>
+function copieaza(){var t=document.getElementById('kit');
+ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t.value).then(function(){ok();}).catch(function(){vechi(t);});}
+ else vechi(t);
+ function vechi(t){t.select();document.execCommand('copy');ok();}
+ function ok(){document.getElementById('ok').textContent='✅ COPIAT — acum dă Paste agentului';}}
+</script></body></html>"""
 
 
 def run_dashboard(cfg, store, agent, port: Optional[int] = None):
