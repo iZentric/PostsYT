@@ -123,3 +123,16 @@ def test_analytics_job_cheama_colectorul(tmp_path, monkeypatch):
         jobs=[{"type": "analytics"}]))
     assert "2 clipuri" in rep["executed"][0]
     assert chemat is not None
+
+
+def test_publish_cu_imagine_reala(monkeypatch, tmp_path):
+    cfg = _cfg(tmp_path)
+    cfg.images_dir = str(tmp_path / "img")
+    store = FakeStore()
+    agent = SimpleNamespace(cfg=cfg, publisher=FakePublisher())
+    monkeypatch.setattr(orders, "_download_image", lambda c, u: "/tmp/poza-reala.jpg")
+    rep = orders.pull_and_execute(cfg, store, agent, fetch_text=_manifest(
+        jobs=[{"type": "publish", "text": "PE CINE AM GĂSIT?!",
+               "image_url": "https://x.ro/poza.jpg"}]))
+    assert store.added[0].image_path == "/tmp/poza-reala.jpg"
+    assert "imagine REALĂ" in rep["executed"][0]

@@ -158,22 +158,51 @@ def _run_job(cfg, store, agent, job: dict) -> str:
     raise ValueError(f"tip necunoscut: {kind!r}")
 
 
+def _download_image(cfg, url: str) -> str:
+    """Descarcă o imagine reală de pe net (pentru posturile cu poză ale agentului)."""
+    import urllib.request
+    if not (url.startswith("https://") or url.startswith("http://")):
+        raise ValueError("image_url invalid")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (PostsYT-orders)"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        body = r.read(9 * 1024 * 1024)
+    if len(body) < 500:
+        raise ValueError("fișierul descărcat e prea mic — nu pare imagine")
+    if body[:8].startswith(b"\x89PNG"):
+        ext = ".png"
+    elif body[:2] == b"\xff\xd8":
+        ext = ".jpg"
+    elif body[8:12] == b"WEBP":
+        ext = ".webp"
+    else:
+        ext = ".jpg"
+    os.makedirs(cfg.images_dir, exist_ok=True)
+    path = os.path.join(cfg.images_dir, f"agent_{int(time.time())}{ext}")
+    with open(path, "wb") as f:
+        f.write(body)
+    return path
+
+
 def _job_publish(store, agent, job: dict) -> str:
     text = str(job.get("text") or "").strip()[:2000]
     if not text:
         raise ValueError("publish fără text")
     opts = [str(o)[:80] for o in (job.get("poll_options") or []) if str(o).strip()][:8]
+    img = str(job.get("image_url") or "").strip()
+    image_path = _download_image(agent.cfg, img) if img else ""
     from .models import Draft, STATUS_APPROVED
     draft = Draft(kind="C" if opts else str(job.get("kind") or "A")[:1].upper(),
                   text=text,
                   poll_question=(text.split("\n")[0][:140] if opts else ""),
                   poll_options=opts,
+                  image_path=image_path,
                   source="orders-agent-arena",
                   status=STATUS_APPROVED)
     did = store.add_draft(draft)
     d = store.get_draft(did)
     agent.publisher.publish(d)
-    return f"post #{did} zburat spre YouTube ({'sondaj' if opts else 'text'})"
+    return (f"post #{did} zburat spre YouTube ({'sondaj' if opts else 'text'}"
+            f"{'+imagine REALĂ' if image_path else ''})")
 
 
 def _job_fetch(cfg, store, job: dict) -> str:
