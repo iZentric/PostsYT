@@ -397,6 +397,21 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             from . import ytanalytics
             try:
                 res = ytanalytics.get_channel_analytics(cfg)
+                # istoric în server: statisticianul poate compara "azi vs alta zi"
+                try:
+                    import os as _os
+                    from .util import iso as _iso, utcnow as _utc
+                    hist_path = _os.path.join(cfg.data_dir, "analytics_history.jsonl")
+                    entry = {"ts": _iso(_utc()),
+                             "abonati": res.get("canal", {}).get("abonati"),
+                             "vizualizari_totale": res.get("canal", {}).get("vizualizari_totale")}
+                    with open(hist_path, "a", encoding="utf-8") as hf:
+                        hf.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                    with open(hist_path, encoding="utf-8") as hf:
+                        res["istoric"] = [json.loads(l) for l in
+                                          hf.readlines()[-30:] if l.strip()]
+                except Exception:
+                    pass
                 self._send(json.dumps(res, ensure_ascii=False), "application/json")
                 store.log(f"📊 Analytics API: {len(res.get('video_recente', []))} clipuri, "
                           f"surse {', '.join(res.get('surse', [])) or '-'}")
