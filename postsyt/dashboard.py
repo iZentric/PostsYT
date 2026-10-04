@@ -419,6 +419,48 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                 self._send(json.dumps({"error": str(e)[:300]}), "application/json", 500)
                 store.log(f"❌ Analytics API a eșuat: {str(e)[:200]}", "ERROR")
 
+        def _secret_ok_body(self, payload: dict) -> bool:
+            hub = getattr(agent, "hub", None)
+            return bool(hub and hub.check_secret(str(payload.get("secret", ""))))
+
+        def _agent_deepstats(self):
+            """Deep stats: fiecare clip disecat (metadate, transcript, top comentarii)."""
+            payload = self._read_json_body(cap=64 * 1024)
+            if not self._secret_ok_body(payload):
+                self._send(json.dumps({"error": "secret invalid"}), "application/json", 403)
+                return
+            from .cli import _videoclipuri_pentru_scan
+            from . import deepstats
+            try:
+                limit = max(1, min(int(payload.get("limit", 8) or 8), 20))
+                vids = _videoclipuri_pentru_scan(cfg, limit)
+                rez = deepstats.depth_scan(
+                    cfg, vids,
+                    want_transcripts=bool(payload.get("transcripts", True)))
+                self._send(json.dumps(rez, ensure_ascii=False), "application/json")
+                store.log(f"🔬 Deepstats API: {rez['total']} clipuri disecate")
+            except Exception as e:  # noqa: BLE001
+                self._send(json.dumps({"error": str(e)[:300]}), "application/json", 500)
+                store.log(f"❌ Deepstats API eșuat: {str(e)[:200]}", "ERROR")
+
+        def _agent_deepsearch(self):
+            """Căutare care CITEȘTE paginile (prin PC bridge => IP rezidențial)."""
+            payload = self._read_json_body(cap=64 * 1024)
+            hub = getattr(agent, "hub", None)
+            if not self._secret_ok_body(payload):
+                self._send(json.dumps({"error": "secret invalid"}), "application/json", 403)
+                return
+            from . import deepsearch
+            try:
+                rez = deepsearch.deep_search(str(payload.get("q", "")),
+                                             k=int(payload.get("k", 3) or 3), hub=hub)
+                self._send(json.dumps(rez, ensure_ascii=False), "application/json")
+                citite = sum(1 for p in rez["pagini_citite"] if p.get("ok"))
+                store.log(f"🕳️ Deepsearch: «{rez['q'][:50]}» → {citite}/{rez['k']} pagini citite")
+            except Exception as e:  # noqa: BLE001
+                self._send(json.dumps({"error": str(e)[:300]}), "application/json", 500)
+                store.log(f"❌ Deepsearch eșuat: {str(e)[:200]}", "ERROR")
+
         def _read_json_body(self, cap: int = 25 * 1024 * 1024) -> dict:
             length = min(int(self.headers.get("Content-Length", 0) or 0), cap)
             try:
@@ -542,6 +584,12 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                 return
             if u.path == "/api/agent/analytics":
                 self._agent_analytics()
+                return
+            if u.path == "/api/agent/deepstats":
+                self._agent_deepstats()
+                return
+            if u.path == "/api/agent/deepsearch":
+                self._agent_deepsearch()
                 return
             if u.path == "/login":
                 length = int(self.headers.get("Content-Length", 0))

@@ -192,6 +192,24 @@ def _videoclipuri_pentru_scan(cfg, limita: int) -> list:
     return vids[:limita]
 
 
+def cmd_deepstats(args):
+    cfg, store, agent = _build(args.config)
+    from . import deepstats
+    vids = _videoclipuri_pentru_scan(cfg, args.limita)
+    if not vids:
+        print("❌ Nu am găsit videoclipuri de analizat (internet? cookies?).")
+        sys.exit(1)
+    print(f"🔬 Analiză adâncă pe {len(vids)} clipuri (transcript: "
+          f"{'NU' if args.fara_transcript else 'DA'})...")
+    rez = deepstats.depth_scan(cfg, vids, want_transcripts=not args.fara_transcript,
+                               top_comentarii=args.comentarii)
+    print()
+    print(deepstats.format_summary(rez))
+    store.log(f"🔬 Deepstats: {rez['total']} clipuri, {rez.get('cu_transcript', 0)} "
+              f"cu transcript, {rez.get('intebari_in_top_comentarii', 0)} întrebări")
+    print(f"\n💾 JSON complet: {rez['salvat_in']}")
+
+
 def cmd_comments(args):
     cfg, store, agent = _build(args.config)
     from .comments import Commenter
@@ -329,6 +347,12 @@ def main(argv=None):
     s.add_argument("--uscat", action="store_true",
                    help="dry-run: arată ce ar publica, fără să publiche")
     s.set_defaults(fn=cmd_comments)
+
+    s = sub.add_parser("deepstats", help="analiză ADÂNCĂ per clip: metadate, transcript, top comentarii")
+    s.add_argument("--limita", type=int, default=8, help="câte clipuri recente (implicit 8)")
+    s.add_argument("--fara-transcript", action="store_true", help="sari peste transcript (mai rapid)")
+    s.add_argument("--comentarii", type=int, default=5, help="top comentarii per clip")
+    s.set_defaults(fn=cmd_deepstats)
 
     args = p.parse_args(argv)
     args.fn(args)
