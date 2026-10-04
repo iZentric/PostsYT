@@ -144,7 +144,9 @@ def _run_job(cfg, store, agent, job: dict) -> str:
             vids, zile=int(job.get("zile") or 30),
             max_pages=int(job.get("pagini") or 3),
             doar_fara_raspuns=not bool(job.get("cu_raspuns", False)))
-        return (f"{rez['total']} de răspuns, erori {len(rez['erori'])} "
+        erori_txt = " | ".join(str(e)[:90] for e in rez.get("erori", [])[:2])
+        return (f"{rez['total']} de răspuns, erori {len(rez['erori'])}"
+                + (f" [{erori_txt}]" if erori_txt else "")
                 f"→ {os.path.basename(str(rez.get('salvat_in', '?')))} (în KIT)")
     if kind == "comments_reply":
         from .comments import Commenter
@@ -199,8 +201,17 @@ def _job_publish(store, agent, job: dict) -> str:
                   source="orders-agent-arena",
                   status=STATUS_APPROVED)
     did = store.add_draft(draft)
-    d = store.get_draft(did)
+    d = store.get_draft(did) if did else None
+    if d is None:          # fallback: publicăm obiectul construit, nu blocăm zborul
+        store.log(f"⚠️ publish: get_draft({did}) gol — public direct din obiect", "WARN")
+        d = draft
     agent.publisher.publish(d)
+    if did:
+        try:               # marcajul local e separat de zbor — nu-l lăsăm să reraport eșec
+            from .models import STATUS_PUBLISHED
+            store.update_draft(did, status=STATUS_PUBLISHED)
+        except Exception as e:  # noqa: BLE001
+            store.log(f"⚠️ publish: marcaj DB pentru #{did}: {e}", "WARN")
     return (f"post #{did} zburat spre YouTube ({'sondaj' if opts else 'text'}"
             f"{'+imagine REALĂ' if image_path else ''})")
 
