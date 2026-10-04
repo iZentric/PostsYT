@@ -147,7 +147,7 @@ def _run_job(cfg, store, agent, job: dict) -> str:
         erori_txt = " | ".join(str(e)[:90] for e in rez.get("erori", [])[:2])
         return (f"{rez['total']} de răspuns, erori {len(rez['erori'])}"
                 + (f" [{erori_txt}]" if erori_txt else "")
-                f"→ {os.path.basename(str(rez.get('salvat_in', '?')))} (în KIT)")
+                + f" → {os.path.basename(str(rez.get('salvat_in', '?')))} (în KIT)")
     if kind == "comments_reply":
         from .comments import Commenter
         plan = job.get("plan") or {}
