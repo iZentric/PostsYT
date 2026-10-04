@@ -297,7 +297,8 @@ def _job_fetch(cfg, store, job: dict) -> str:
     if use_session:
         from .innertube import InnertubeClient, load_cookies
         cookies = load_cookies(cfg.cookies_file, cfg.cookies_json)
-        client = InnertubeClient(cookies, channel_id=cfg.own_channel_id)
+        client = InnertubeClient(cookies, channel_id=cfg.own_channel_id,
+                                 persist_path=cfg.cookies_file)
         _status, _hdrs, body = client._req("GET", url, headers=client._headers())
     else:
         from .util import http_get

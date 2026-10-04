@@ -26,13 +26,26 @@ class HttpError(Exception):
         super().__init__(f"HTTP {status} la {url}: {self.body[:200]}")
 
 
-def http_get(url: str, headers: Optional[dict] = None, timeout: int = 30) -> str:
+def http_get(url: str, headers: Optional[dict] = None, timeout: int = 30,
+             want_headers: bool = False):
+    """want_headers=True -> returneaza (text, headers) cu TOATE liniile Set-Cookie
+    păstrate (una pe rând în cheia 'Set-Cookie'), pentru rotația de sesiune."""
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
             enc = resp.headers.get_content_charset() or "utf-8"
-            return raw.decode(enc, errors="replace")
+            text = raw.decode(enc, errors="replace")
+            if want_headers:
+                hdrs = dict(resp.headers)
+                try:
+                    sc = resp.headers.get_all("Set-Cookie")
+                except Exception:  # noqa: BLE001
+                    sc = None
+                if sc:
+                    hdrs["Set-Cookie"] = "\n".join(sc)
+                return text, hdrs
+            return text
     except urllib.error.HTTPError as e:
         raise HttpError(e.code, url, e.read().decode("utf-8", errors="replace")) from e
     except urllib.error.URLError as e:
@@ -49,7 +62,14 @@ def http_post(url: str, body: bytes | str | None = None, headers: Optional[dict]
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
             enc = resp.headers.get_content_charset() or "utf-8"
-            return raw.decode(enc, errors="replace"), dict(resp.headers)
+            hdrs = dict(resp.headers)
+            try:
+                sc = resp.headers.get_all("Set-Cookie")
+            except Exception:  # noqa: BLE001
+                sc = None
+            if sc:
+                hdrs["Set-Cookie"] = "\n".join(sc)
+            return raw.decode(enc, errors="replace"), hdrs
     except urllib.error.HTTPError as e:
         txt = e.read().decode("utf-8", errors="replace")
         raise HttpError(e.code, url, txt) from e

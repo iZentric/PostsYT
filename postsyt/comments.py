@@ -141,7 +141,8 @@ class Commenter:
     def _ensure_client(self) -> InnertubeClient:
         if self._client is None:
             cookies = load_cookies(self.cfg.cookies_file, self.cfg.cookies_json)
-            self._client = InnertubeClient(cookies, channel_id=self.cfg.own_channel_id)
+            self._client = InnertubeClient(cookies, channel_id=self.cfg.own_channel_id,
+                                           persist_path=self.cfg.cookies_file)
         return self._client
 
     def _post_json(self, endpoint: str, body: dict) -> str:

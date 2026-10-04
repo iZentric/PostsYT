@@ -72,6 +72,39 @@ def load_json_cookies(path: str) -> dict[str, str]:
     return {c["name"]: c["value"] for c in data if "name" in c}
 
 
+def save_netscape_cookies(txt_path: str, cookies: dict[str, str]) -> int:
+    """Rescrie cookies.txt păstrând structura; actualizează doar valorile numelor
+    deja existente (rotația YouTube). Returnează câte valori s-au schimbat."""
+    try:
+        with open(txt_path, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return 0
+    schimbate = 0
+    out = []
+    for line in lines:
+        prefix = ""
+        body = line
+        if body.startswith("#HttpOnly_"):
+            prefix, body = "#HttpOnly_", body[len("#HttpOnly_"):]
+        parts = body.split("\t")
+        if (len(parts) >= 7 and parts[5] in cookies
+                and cookies[parts[5]] and parts[6] != cookies[parts[5]]):
+            parts[6] = cookies[parts[5]]
+            schimbate += 1
+            line = prefix + "\t".join(parts)
+        out.append(line)
+    tmp = txt_path + ".tmp-rotate"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("\n".join(out) + "\n")
+    os.replace(tmp, txt_path)
+    try:
+        os.chmod(txt_path, 0o600)
+    except OSError:
+        pass
+    return schimbate
+
+
 def load_cookies(txt_path: str, json_path: str) -> dict[str, str]:
     if os.path.exists(txt_path):
         c = load_netscape_cookies(txt_path)
@@ -86,11 +119,14 @@ def load_cookies(txt_path: str, json_path: str) -> dict[str, str]:
 
 class InnertubeClient:
     def __init__(self, cookies: dict[str, str], channel_id: Optional[str] = None,
-                 transport=None):
-        """transport: fn(method,url,headers,body)->(status,headers,text) — ex. prin PC bridge."""
+                 transport=None, persist_path: str = ""):
+        """transport: fn(method,url,headers,body)->(status,headers,text) — ex. prin PC bridge.
+        persist_path: dacă e setat, cheile de sesiune rotite de YouTube se salvează
+        singure în cookies.txt — sesiunea trăiește luni fără re-export manual."""
         self.cookies = cookies
         self.channel_id = channel_id
         self.transport = transport
+        self.persist_path = persist_path
         self.api_key: Optional[str] = None
         self.context: Optional[dict] = None
         self.page_id: Optional[str] = None       # DELEGATED_SESSION_ID (brand accounts)
@@ -143,11 +179,41 @@ class InnertubeClient:
              body: bytes | str | None = None):
         """Toate cererile trec pe aici: direct sau prin PC bridge."""
         if self.transport is not None:
-            return self.transport(method, url, headers or {}, body)
+            status, resp_headers, text = self.transport(method, url, headers or {}, body)
+            self._maybe_persist(resp_headers)
+            return status, resp_headers, text
         if method.upper() == "GET":
-            return 200, {}, http_get(url, headers=headers or self._headers())
-        text, resp_headers = http_post(url, body=body, headers=headers or {})
+            text, resp_headers = http_get(url, headers=headers or self._headers(),
+                                          want_headers=True)
+        else:
+            text, resp_headers = http_post(url, body=body, headers=headers or {})
+        self._maybe_persist(resp_headers)
         return 200, resp_headers, text
+
+    def _maybe_persist(self, resp_headers: Optional[dict]) -> None:
+        """Prinde cheile Set-Cookie rotate de YouTube și le scrie în cookies.txt.
+        Best-effort: NICIODATĂ nu aruncă — rotația nu poate strica cererea curentă."""
+        if not self.persist_path or not resp_headers:
+            return
+        try:
+            raw = resp_headers.get("Set-Cookie") or resp_headers.get("set-cookie") or ""
+            if not raw:
+                return
+            actualizari = {}
+            for bucata in str(raw).split("\n"):
+                pereche = bucata.split(";", 1)[0].strip()
+                if "=" not in pereche:
+                    continue
+                nume, valoare = pereche.split("=", 1)
+                nume, valoare = nume.strip(), valoare.strip()
+                # doar nume pe care DEJA le avem — nu adăugăm gunoi nou în sesiune
+                if nume in self.cookies and valoare and self.cookies[nume] != valoare:
+                    actualizari[nume] = valoare
+            if actualizari:
+                self.cookies.update(actualizari)
+                save_netscape_cookies(self.persist_path, self.cookies)
+        except Exception:  # noqa: BLE001
+            pass
 
     def ensure_config(self) -> None:
         if not self.api_key or not self.context:

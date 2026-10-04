@@ -57,12 +57,14 @@ class Publisher:
                 cookies = load_cookies(self.cfg.cookies_file, self.cfg.cookies_json)
                 self._client_bridge = InnertubeClient(
                     cookies, channel_id=self.cfg.own_channel_id,
-                    transport=self.hub.make_transport())
+                    transport=self.hub.make_transport(),
+                    persist_path=self.cfg.cookies_file)
                 self.log("🌉 Publicarea iese prin PC bridge (IP-ul tău de acasă)")
             return self._client_bridge, "+bridge"
         if self._client is None:
             cookies = load_cookies(self.cfg.cookies_file, self.cfg.cookies_json)
-            self._client = InnertubeClient(cookies, channel_id=self.cfg.own_channel_id)
+            self._client = InnertubeClient(cookies, channel_id=self.cfg.own_channel_id,
+                                           persist_path=self.cfg.cookies_file)
         return self._client, ""
 
     def _post_text(self, text: str, image_path: str | None, base_mode: str):

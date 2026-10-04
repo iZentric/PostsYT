@@ -198,3 +198,57 @@ def test_publish_raporteaza_onest_esecul_publisherului(tmp_path):
         rev="honest-1", jobs=[{"type": "publish", "text": "test onestitate"}]))
     assert "EROARE" in rep["executed"][0]
     assert "Sesiunea" in rep["executed"][0]
+
+
+COOKIE_FILE_DEMO = (
+    "# Netscape HTTP Cookie File\n"
+    "#HttpOnly_.youtube.com\tTRUE\t/\tTRUE\t1999999999\tSID\tvechi-sid\n"
+    ".youtube.com\tTRUE\t/\tTRUE\t1999999999\tHSID\tvechi-hsid\n"
+    ".youtube.com\tTRUE\t/\tTRUE\t1999999999\tSAPISID\tvechi-sapisid\n"
+)
+
+
+def test_rotatia_set_cookie_se_salveaza_singura(tmp_path, monkeypatch):
+    from postsyt import innertube
+    cfile = tmp_path / "cookies.txt"
+    cfile.write_text(COOKIE_FILE_DEMO, encoding="utf-8")
+    cookies = innertube.load_netscape_cookies(str(cfile))
+    client = innertube.InnertubeClient(cookies, persist_path=str(cfile))
+    monkeypatch.setattr(innertube, "http_get", lambda url, headers=None,
+                        want_headers=False, timeout=30: (
+        "<html/>", {"Set-Cookie": "SID=nou-sid-rulat; Path=/; Secure\n"
+                                  "NES同仁堂=junk\n"
+                                  "NECUNOSCUT=xyz; Path=/"}) if want_headers else "<html/>")
+    status, _hdrs, text = client._req("GET", "https://www.youtube.com/")
+    assert status == 200 and text == "<html/>"
+    # in memorie s-a actualizat
+    assert client.cookies["SID"] == "nou-sid-rulat"
+    assert client.cookies["HSID"] == "vechi-hsid"        # neatins
+    assert "NECUNOSCUT" not in client.cookies            # nu adaugam nume noi
+    # pe disc s-a rescris pastrand structura (inclusiv prefixul #HttpOnly_)
+    pe_disc = cfile.read_text(encoding="utf-8")
+    assert "#HttpOnly_.youtube.com\tTRUE\t/\tTRUE\t1999999999\tSID\tnou-sid-rulat" in pe_disc
+    assert "vechi-hsid" in pe_disc
+    assert "NECUNOSCUT" not in pe_disc
+
+
+def test_rotatia_fara_persist_path_nu_strica_nimic(monkeypatch):
+    from postsyt import innertube
+    cookies = {"SID": "vechi"}
+    client = innertube.InnertubeClient(cookies)   # fara persist_path
+    monkeypatch.setattr(innertube, "http_get", lambda url, headers=None,
+                        want_headers=False, timeout=30: (
+        "<ok/>", {"Set-Cookie": "SID=nou"}) if want_headers else "<ok/>")
+    status, _h, _t = client._req("GET", "https://www.youtube.com/")
+    assert status == 200
+    assert cookies["SID"] == "vechi"   # neschimbat, fara eroare
+
+
+def test_save_netscape_cookies_atomic_si_selectiv(tmp_path):
+    from postsyt import innertube
+    cfile = tmp_path / "cookies.txt"
+    cfile.write_text(COOKIE_FILE_DEMO, encoding="utf-8")
+    n = innertube.save_netscape_cookies(str(cfile), {"HSID": "hs-rotit", "SAPISID": "sa-rotit"})
+    assert n == 2
+    txt = cfile.read_text(encoding="utf-8")
+    assert "hs-rotit" in txt and "sa-rotit" in txt and "vechi-sid" in txt
