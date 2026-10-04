@@ -372,6 +372,18 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             self.send_header("Content-Length", "0")
             self.end_headers()
 
+        def _api_task(self, q_get):
+            """Poarta-Unică pentru agentul din chat: execută + întoarce verdictul
+            text în același răspuns (GET cu ?key=...&op=...). Zero paste, tot chat."""
+            op = q_get.get("op", [""])[0]
+            params = {k: v[0] for k, v in q_get.items() if k not in ("key", "op")}
+            try:
+                rez = run_task(cfg, store, agent, op, params)
+                self._send(rez, "text/plain; charset=utf-8")
+            except Exception as e:  # noqa: BLE001
+                store.log(f"/api/task {op}: {e}", "ERROR")
+                self._send(f"EROARE: {e}", "text/plain; charset=utf-8", 500)
+
         def _kit_page(self):
             """Pagina cu textul-complet-pentru-agenți (un click => Paste oriunde)."""
             host = self.headers.get("Host", "localhost:8787")
@@ -561,11 +573,15 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             if u.path == "/api/bridge/status":
                 self._bridge_status(q_get)
                 return
-            if self.TOKEN and q_get.get("key", [""])[0] == self.TOKEN:
+            key_ok = bool(self.TOKEN and q_get.get("key", [""])[0] == self.TOKEN)
+            if key_ok and u.path in ("/", "/index.html"):
                 self._redirect("/", cookie=f"{self.COOKIE_NAME}={self.TOKEN}; HttpOnly; Path=/; Max-Age=2592000")
                 return
-            if not self._authed():
+            if not (self._authed() or key_ok):
                 self._login_page()
+                return
+            if u.path == "/api/task":
+                self._api_task(q_get)
                 return
             if u.path == "/kit":
                 self._kit_page()
@@ -685,6 +701,57 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             self._send("ok", "text/plain")
 
     return Handler
+
+
+def run_task(cfg, store, agent, op: str, params: dict) -> str:
+    """Executorul Porții-Unice (GET /api/task?key=...&op=...): câteva operații
+    sigure, cu rezultatul returnat ca text în același răspuns."""
+    op = (op or "").strip().lower()
+    if op == "status":
+        pend = store.drafts(status="draft", limit=100)
+        ap = store.drafts(status="approved", limit=100)
+        return (f"STATUS OK\ndrafturi în așteptare: {len(pend)}\naprobate: {len(ap)}\n"
+                f"notă: /api/task op=analytics|deepstats|comments_scan|fetch|publish&id=N|"
+                f"approve_all|generate&kind=X|tick")
+    if op == "tick":
+        return "TICK: " + json.dumps(agent.tick(quick=True), ensure_ascii=False)
+    if op == "approve_all":
+        from .models import STATUS_APPROVED
+        pend = store.drafts(status="draft", limit=50)
+        for d in pend:
+            store.update_draft(d.id, status=STATUS_APPROVED)
+        return f"{len(pend)} drafturi aprobate"
+    if op == "publish":
+        did = int(params.get("id", "0") or 0)
+        d = store.get_draft(did)
+        if not d:
+            return f"EROARE: draft #{did} inexistent"
+        from .models import STATUS_APPROVED
+        store.update_draft(did, status=STATUS_APPROVED)
+        agent.publisher.publish(store.get_draft(did))
+        return f"post #{did} zburat"
+    if op == "generate":
+        return f"draft #{agent.force_generate(params.get('kind', 'A')[:1].upper())} generat"
+    if op == "analytics":
+        from . import ytanalytics
+        res = ytanalytics.get_channel_analytics(cfg)
+        out = {"abonati": res.get("abonati"), "videoclipuri": res.get("videoclipuri"),
+               "ultimele": [{"id": v.get("id"), "titlu": v.get("titlu"),
+                             "views": v.get("views") or v.get("vizualizari")}
+                            for v in (res.get("video_recente") or [])[:5]]}
+        return "ANALYTICS: " + json.dumps(out, ensure_ascii=False)
+    if op in ("deepstats", "comments_scan", "fetch"):
+        from .orders import _run_job
+        detail = _run_job(cfg, store, agent, {"type": op, **params})
+        if op == "fetch":  # întoarcem și conținutul paginii, nu doar verdictul
+            fpath = os.path.join(cfg.data_dir, "fetch_latest.txt")
+            try:
+                with open(fpath, encoding="utf-8") as f:
+                    detail += "\n" + ("=" * 60) + "\n" + f.read()[:6000]
+            except OSError:
+                pass
+        return detail
+    raise ValueError(f"op necunoscut: {op!r}")
 
 
 def _kit_agent_text(cfg, base: str, secret: str) -> str:
