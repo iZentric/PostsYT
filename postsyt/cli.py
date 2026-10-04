@@ -173,6 +173,65 @@ def cmd_analytics(args):
               f"surse: {', '.join(res.get('surse', [])) or 'niciuna'})")
 
 
+def _videoclipuri_pentru_scan(cfg, limita: int) -> list:
+    """[{id, titlu}] din analytics (video+shorts), fallback feed RSS."""
+    vids = []
+    try:
+        from . import ytanalytics
+        res = ytanalytics.get_channel_analytics(cfg, save=False)
+        vids = [{"id": v["id"], "titlu": v["titlu"]} for v in res.get("video_recente", [])]
+    except Exception:
+        pass
+    if not vids:
+        try:
+            from . import feeds
+            vids = [{"id": v.video_id, "titlu": v.title}
+                    for v in feeds.fetch_feed(cfg.own_channel_id)]
+        except Exception:
+            pass
+    return vids[:limita]
+
+
+def cmd_comments(args):
+    cfg, store, agent = _build(args.config)
+    from .comments import Commenter
+    c = Commenter(cfg, store=store)
+    if args.action == "scan":
+        vids = _videoclipuri_pentru_scan(cfg, args.max_videos)
+        if not vids:
+            print("❌ Nu am găsit videoclipuri de scanat (internet? cookies?).")
+            sys.exit(1)
+        print(f"🔍 Scanare comentarii pe {len(vids)} clipuri (istoric {args.zile} zile)...")
+        rez = c.scan(vids, zile=args.zile, max_pages=args.pagini,
+                     doar_fara_raspuns=not args.cu_raspuns)
+        print(f"\n💬 {rez['total']} comentarii care așteaptă răspuns "
+              f"(din {rez['videoclipuri_scanate']} clipuri). "
+              f"Erori: {len(rez['erori'])}")
+        for i, t in enumerate(rez["threaduri_raspundibile"][:15], 1):
+            print(f"  {i:>2}. {t['autor'][:20]} la «{t['video_titlu'][:36]}» "
+                  f"({t['publicat']}): {t['text'][:60]}")
+        if rez["total"] > 15:
+            print(f"  ... și încă {rez['total'] - 15}")
+        print(f"\n💾 Fișier: {rez['salvat_in']}")
+        print("   Trimite-mi fișierul ăsta — îți scriu planul de răspunsuri, "
+              "tu îl aprobi, apoi: comments reply --plan ...")
+    else:  # reply
+        import json as j
+        if not os.path.exists(args.plan):
+            print(f"❌ Nu găsesc planul: {args.plan}")
+            sys.exit(1)
+        with open(args.plan, encoding="utf-8") as f:
+            plan = j.load(f)
+        n = len(plan.get("raspunsuri") or [])
+        print(f"{'🧪 MOD USCAT — nimic nu se publică' if args.uscat else '📮 Publicare'} "
+              f"plan cu {n} răspunsuri (limită zilnică {args.limita})...")
+        rez = c.apply_plan(plan, limita_zilnica=args.limita, uscat=args.uscat)
+        print(f"\n✅ Postate: {rez['postate']}   Sărite: {rez['sarite']}   "
+              f"Erori: {len(rez['erori'])}")
+        for e in rez["erori"][:5]:
+            print(f"   ⚠️ {e}")
+
+
 def cmd_upload(args):
     cfg, store, agent = _build(args.config)
     from . import uploader
@@ -251,6 +310,25 @@ def main(argv=None):
     s.add_argument("--privacy", default="private", choices=["private", "unlisted", "public"],
                    help="vizibilitate (implicit: private — cel mai sigur)")
     s.set_defaults(fn=cmd_upload)
+
+    s = sub.add_parser("comments", help="comentariile canalului: scan + reply (cu plan aprobat)")
+    s.add_argument("action", choices=["scan", "reply"],
+                   help="scan = adună ce așteaptă răspuns | reply = publică planul aprobat")
+    s.add_argument("--zile", type=int, default=60,
+                   help="cât de vechi pot fi comentariile (implicit 60 zile)")
+    s.add_argument("--max-videos", type=int, default=15,
+                   help="câte clipuri recente scanez (implicit 15)")
+    s.add_argument("--pagini", type=int, default=4,
+                   help="pagini de comentarii per clip (implicit 4 ≈ 80 thread-uri)")
+    s.add_argument("--cu-raspuns", action="store_true",
+                   help="include și comentariile la care am răspuns deja")
+    s.add_argument("--plan", default="data/replies_plan.json",
+                   help="fișierul plan aprobat (la action=reply)")
+    s.add_argument("--limita", type=int, default=40,
+                   help="max răspunsuri/zi (implicit 40 — prag anti-spam)")
+    s.add_argument("--uscat", action="store_true",
+                   help="dry-run: arată ce ar publica, fără să publiche")
+    s.set_defaults(fn=cmd_comments)
 
     args = p.parse_args(argv)
     args.fn(args)
