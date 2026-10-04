@@ -71,7 +71,15 @@ Nu trebuie să implementezi polling: trimiți cererea, primești răspunsul.
 ```
 Erori: HTTP 403 cu `{"status":0,"error":"secret invalid"}`.
 
-### 4. `GET /api/bridge/status?secret=SECRET` (sau header `X-Bridge-Key`)
+### 4. `POST /api/bridge/search` — **API-ul privat de căutări** (un singur apel, zero cod)
+```json
+=> {"secret": "SECRET", "q": "orice subiect", "limit": 8}
+<= {"results": [{"titlu": "...", "url": "..."}], "via": "bridge"}
+```
+`via` spune dacă a ieșit prin PC (`bridge`) sau direct din server (`direct`) —
+merge în ambele cazuri, deci agenții nu sunt legați de PC.
+
+### 5. `GET /api/bridge/status?secret=SECRET` (sau header `X-Bridge-Key`)
 ```json
 {"bridges": [{"name": "PC-ACASA", "agent": "postsyt",
               "online": true, "last_seen_ago_s": 12}],

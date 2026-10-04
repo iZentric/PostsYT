@@ -73,6 +73,14 @@ DACĂ SCRII COD: iată clientul Python complet (doar stdlib — HTTP + CĂUTĂRI
   Utilizare: cauta("orice subiect") -> apoi prin_pc(url) pe fiecare rezultat
   și extrași datele pentru STATISTICI. Bridge-ul merge pe ORICE domeniu public.
 
+CĂUTARE WEB INSTANT (un singur POST, fără cod de parsare):
+
+  POST {SERVER}/api/bridge/search      Content-Type: application/json
+  {"secret": "{SECRET}", "q": "orice subiect", "limit": 8}
+  => {"results": [{"titlu": "...", "url": "..."}], "via": "bridge"}
+  Deschizi apoi fiecare "url" cu prin_pc() și ai TOATE datele pentru statistici.
+  Funcționează chiar dacă PC-ul e oprit (revine pe „direct"). NU ocoli acest API.
+
 CREDENȚIALELE MELE:
   SERVER = {SERVER}
   SECRET = {SECRET}

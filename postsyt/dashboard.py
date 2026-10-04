@@ -370,6 +370,22 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
             self.wfile.write(body)
 
         # ---------------- PC Bridge universal (docs/BRIDGE.md) ----------------
+        def _bridge_search(self):
+            """API-ul privat de căutări: un POST => rezultate web curate (vezi docs/BRIDGE.md).
+            Trece prin PC bridge dacă e online, altfel direct — fără dependență de PC."""
+            payload = self._read_json_body(cap=64 * 1024)
+            hub = getattr(agent, "hub", None)
+            if not hub or not hub.check_secret(str(payload.get("secret", ""))):
+                self._send(json.dumps({"error": "secret invalid"}), "application/json", 403)
+                return
+            from . import websearch
+            res = websearch.search(str(payload.get("q", ""))[:300],
+                                   limit=int(payload.get("limit", 8) or 8),
+                                   hub=hub)
+            store.log(f"🔎 Search API: «{str(payload.get('q',''))[:50]}» → "
+                      f"{len(res.get('results', []))} rezultate (via {res.get('via')})")
+            self._send(json.dumps(res, ensure_ascii=False), "application/json")
+
         def _read_json_body(self, cap: int = 25 * 1024 * 1024) -> dict:
             length = min(int(self.headers.get("Content-Length", 0) or 0), cap)
             try:
@@ -487,6 +503,9 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                 return
             if u.path == "/api/bridge/request":
                 self._bridge_request()
+                return
+            if u.path == "/api/bridge/search":
+                self._bridge_search()
                 return
             if u.path == "/login":
                 length = int(self.headers.get("Content-Length", 0))

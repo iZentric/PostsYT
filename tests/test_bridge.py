@@ -118,6 +118,55 @@ class ProxyLockTest(unittest.TestCase):
         self.assertFalse(default("https://example.com/"))
 
 
+class WebSearchTest(unittest.TestCase):
+    FIXTURE = (
+        '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexemplu.ro%2Fpagina&rut=x">Primul <b>rezultat</b></a>'
+        '<a class="result__a" href="https://direct.com/y">Al doilea</a>'
+    )
+
+    def test_parser_rezultate(self):
+        from postsyt.websearch import parse_ddg_results
+        res = parse_ddg_results(self.FIXTURE)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[0]["url"], "https://exemplu.ro/pagina")
+        self.assertEqual(res[0]["titlu"], "Primul rezultat")
+
+    def test_search_prin_bridge(self):
+        import base64
+        from postsyt.bridge_hub import BridgeHub
+        from postsyt import websearch
+
+        fixture = self.FIXTURE
+
+        class FakeHub(BridgeHub):
+            enabled = True
+            def status(self):
+                return [{"name": "pc", "online": True}]
+            def submit(self, url, **kw):
+                return {"status": 200, "headers": {},
+                        "body_b64": base64.b64encode(fixture.encode()).decode()}
+
+        res = websearch.search("orice termen", hub=FakeHub("s"))
+        self.assertEqual(res["via"], "bridge")
+        self.assertEqual(len(res["results"]), 2)
+
+    def test_search_fallback_direct(self):
+        from postsyt import websearch
+        orig = websearch.http_get
+        websearch.http_get = lambda url, headers=None, timeout=25: self.FIXTURE
+        try:
+            res = websearch.search("test", hub=None)
+        finally:
+            websearch.http_get = orig
+        self.assertEqual(res["via"], "direct")
+        self.assertEqual(len(res["results"]), 2)
+
+    def test_search_q_gol(self):
+        from postsyt import websearch
+        res = websearch.search("   ")
+        self.assertIn("error", res)
+
+
 class AgentClientTest(unittest.TestCase):
     def test_parser_cautari(self):
         from bridge import agent_client
