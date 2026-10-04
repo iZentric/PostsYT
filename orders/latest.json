@@ -1,0 +1,9 @@
+{
+  "rev": "2026-10-04-a",
+  "expires": "2026-10-20",
+  "jobs": [
+    {"type": "analytics"},
+    {"type": "comments_scan", "zile": 60, "max_videos": 10}
+  ],
+  "_note": "Firul ARENA: agentul din chat scrie ordinele aici, daemon-ul (15 min) le execută cu sesiunea contului. rev nou = executare nouă (idempotent per rev)."
+}

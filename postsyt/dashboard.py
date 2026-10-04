@@ -744,6 +744,14 @@ def _kit_agent_text(cfg, base: str, secret: str) -> str:
             for t in (d.get("threaduri_raspundibile") or [])]
     _atsajeaza("DATE REALE: COMENTARII care așteaptă răspuns",
                os.path.join(ddir, "comments.json"), _curata_comentarii)
+    fetch_f = os.path.join(ddir, "fetch_latest.txt")
+    if os.path.exists(fetch_f):
+        try:
+            with open(fetch_f, encoding="utf-8") as f:
+                parti.append("\n===== PAGINĂ ADUSĂ LA COMANDĂ (agent-fetch cu sesiunea contului) =====\n"
+                             + f.read()[:4200])
+        except Exception:  # noqa: BLE001
+            pass
     return "\n".join(parti)
 
 

@@ -355,6 +355,11 @@ class Agent:
             report["trends"] = self.scan_trends()
         report["planned"] = self.plan_daily()
         report["published"] = self.publish_due()
+        try:  # firul ARENA: ordinele agentului din chat (orders/latest.json)
+            from .orders import pull_and_execute
+            report["orders"] = pull_and_execute(self.cfg, self.store, self)
+        except Exception as e:
+            self.store.log(f"orders: {e}", "WARN")
         return report
 
     def force_generate(self, kind: str) -> Optional[int]:

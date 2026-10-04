@@ -90,13 +90,20 @@ def cmd_daemon(args):
     os.environ["POSTSYT_DAEMON"] = "1"
     store.log("🟢 Daemon pornit")
     print("🟢 Daemon PostsYT pornit. Ctrl+C pentru stop.")
-    last: dict[str, float] = {"feeds": 0, "mirror": 0, "trends": 0, "plan": 0}
+    last: dict[str, float] = {"feeds": 0, "mirror": 0, "trends": 0, "plan": 0, "orders": 0}
     try:
         while True:
             now = time.time()
             if now - last["feeds"] >= cfg.feed_check_minutes * 60:
                 agent.scan_own_feed()
                 last["feeds"] = now
+            if now - last["orders"] >= 15 * 60:
+                try:  # firul ARENA: ordinele din orders/latest.json pe GitHub
+                    from .orders import pull_and_execute
+                    pull_and_execute(cfg, store, agent)
+                except Exception as e:
+                    store.log(f"orders: {e}", "WARN")
+                last["orders"] = now
             if now - last["mirror"] >= cfg.mirror_check_minutes * 60:
                 try:
                     agent.scan_mirror_posts()
