@@ -32,6 +32,21 @@ VIDEOS_PAGE = {
     ]},
 }
 
+VIDEOS_PAGE_LAYOUT_NOU = {"header": {"pageHeaderRenderer": {"content": {
+    "pageHeaderViewModel": {"metadata": {"contentMetadataViewModel": {
+        "metadataRows": [{"metadataParts": [
+            {"text": {"content": "@isentric1"}},
+            {"text": {"content": "4,02 K de abonați"}},
+            {"text": {"content": "812 videoclipuri"}},
+        ]}]}}}}}}}
+
+ABOUT_PAGE_LAYOUT_NOU = {"about": {"aboutChannelRenderer": {"metadata": {
+    "aboutChannelViewModel": {
+        "description": "Salut! Eu sunt iZentric",
+        "joinedDate": {"content": "S-a înscris la 3 oct. 2020"},
+        "viewCount": {"content": "1.234.567 de vizualizări"},
+    }}}}}
+
 SHORTS_PAGE = {"shorts": {"lockups": [
     {"shortsLockupViewModel": {
         "entityId": "shorts-shelf-item-" + "c" * 11 + "-0",
@@ -125,6 +140,16 @@ class TestParsere:
         hdr = ya.parse_channel_header(VIDEOS_PAGE)
         assert hdr["abonati"] == 4020
         about = ya.parse_about(ABOUT_PAGE)
+        assert about["vizualizari_totale"] == 1234567
+
+    def test_header_layout_nou_metadata(self):
+        hdr = ya.parse_channel_header(VIDEOS_PAGE_LAYOUT_NOU)
+        assert hdr["abonati"] == 4020
+        assert "abon" in hdr["abonati_txt"].lower()
+        assert "812" in hdr["videoclipuri_txt"]
+
+    def test_about_layout_nou(self):
+        about = ya.parse_about(ABOUT_PAGE_LAYOUT_NOU)
         assert about["vizualizari_totale"] == 1234567
 
 

@@ -129,7 +129,9 @@ def parse_shorts(initial: dict) -> list[dict]:
 
 
 def parse_channel_header(initial: dict) -> dict:
-    """Abonați / număr videoclipuri din headerul paginii canalului."""
+    """Abonați / număr videoclipuri din headerul canalului.
+    Două strategii: layout vechi (subscriberCountText) + layout nou
+    (contentMetadataViewModel / orice text RO-EN cu 'abonați')."""
     info: dict = {"abonati": None, "abonati_txt": "", "videoclipuri_txt": ""}
     subs = walk_find(initial, "subscriberCountText")
     for s in subs:
@@ -145,11 +147,30 @@ def parse_channel_header(initial: dict) -> dict:
         if txt and re.search(r"\d", txt):
             info["videoclipuri_txt"] = txt
             break
+    # fallback layout nou: orice bucată de text cu «abonați»/«videoclipuri»
+    if not info["abonati_txt"] or not info["videoclipuri_txt"]:
+        blob = json.dumps(initial, ensure_ascii=False)
+        if not info["abonati_txt"]:
+            m = re.search(r'"content"\s*:\s*"([\d][^"]*?(?:de abonați|subscribers?))"',
+                          blob, re.IGNORECASE) or \
+                re.search(r'"simpleText"\s*:\s*"([\d][^"]*?(?:de abonați|subscribers?))"',
+                          blob, re.IGNORECASE)
+            if m:
+                info["abonati_txt"] = m.group(1)
+                info["abonati"] = parse_count_text(m.group(1))
+        if not info["videoclipuri_txt"]:
+            m = re.search(r'"content"\s*:\s*"([\d][^"]*?(?:videoclipuri|videos?))"',
+                          blob, re.IGNORECASE) or \
+                re.search(r'"simpleText"\s*:\s*"([\d][^"]*?(?:videoclipuri|videos?))"',
+                          blob, re.IGNORECASE)
+            if m:
+                info["videoclipuri_txt"] = m.group(1)
     return info
 
 
 def parse_about(initial: dict) -> dict:
-    """Vizualizări totale canal + dată înregistrare din tabul Despre."""
+    """Vizualizări totale canal + dată înregistrare din tabul Despre.
+    Fallback: cel mai mare număr urmat de «de vizualizări» din orice layout."""
     info: dict = {"vizualizari_totale": None, "vizualizari_totale_txt": "",
                   "inregistrat": "", "descriere": ""}
     for ab in walk_find(initial, "channelAboutFullMetadataRenderer"):
@@ -165,6 +186,17 @@ def parse_about(initial: dict) -> dict:
         desc = runs_to_text(ab.get("description"))
         if desc and not info["descriere"]:
             info["descriere"] = desc
+    if not info["vizualizari_totale_txt"]:
+        blob = json.dumps(initial, ensure_ascii=False)
+        best_txt, best_val = "", 0
+        for m in re.finditer(r'"([\d][\d.,\s\xa0]*?)\s*(?:de vizualizări|valorizări|views?)"',
+                             blob, re.IGNORECASE):
+            val = parse_count_text(m.group(1)) or 0
+            if val > best_val:
+                best_txt, best_val = m.group(1).strip(), val
+        if best_val:
+            info["vizualizari_totale_txt"] = f"{best_txt} de vizualizări"
+            info["vizualizari_totale"] = best_val
     return info
 
 
