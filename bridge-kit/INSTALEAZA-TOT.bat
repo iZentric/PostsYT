@@ -20,7 +20,7 @@ set "DEST=%USERPROFILE%\PostsYT-Bridge"
 if not exist "%DEST%" mkdir "%DEST%"
 
 echo [*] Extrage toate fisierele din acest singur bat...
-for /f "delims=:" %%n in ('findstr /n /c:"==KIT-B64-START==" "%~f0"') do set "LN=%%n"
+for /f "delims=:" %%n in ('findstr /b /n /c:"==KIT-B64-START==" "%~f0"') do set "LN=%%n"
 more +%LN% "%~f0" > "%TEMP%\pckit.b64"
 certutil -decode -f "%TEMP%\pckit.b64" "%TEMP%\pckit.zip" >nul
 if not exist "%TEMP%\pckit.zip" (
