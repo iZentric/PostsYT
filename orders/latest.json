@@ -1,12 +1,23 @@
 {
-  "rev": "2026-10-04-d",
-  "expires": "2026-10-30",
+  "rev": "2026-10-04-e",
+  "expires": "2026-10-10",
   "jobs": [
     {
-      "type": "comments_scan",
-      "zile": 60,
-      "max_videos": 10
+      "type": "publish",
+      "kind": "A",
+      "text": "FRATEEE noaptea trecuta s-a plimbat CINEVA pe PokeCity.. si NU era pokemon 🐱👀\n\nam gasit urme, usi deschise si un pokemon disparut.. jur ca nu glumesc 😭\n\nvoi cine credeti ca e??\nscrieti jos, cine ghiceste primeste SHOUTOUT in episod 😈\n\ndovezile vin in episodul zilelor astea.. fiti pe faza\n\nhttps://www.youtube.com/@isentric1",
+      "image_url": "https://raw.githubusercontent.com/iZentric/PostsYT/arena/01a103b1-postsyt/assets/teaser-cat-in-the-hat.png"
+    },
+    {
+      "type": "publish",
+      "kind": "C",
+      "text": "CAT IN THE HAT pe PokeCity?! 🐱😨\n\nfacem episodul intreg cu el sau ne prefacem ca n-am vazut nimic??\n(Nocivanu zice ca are dovezi.. 👀)\n\nhttps://www.youtube.com/@isentric1",
+      "poll_options": [
+        "DA, FILMEAZA AZI 😈",
+        "da dar mi-e FRICA 🌙",
+        "nu frate.. protectie 😭"
+      ]
     }
   ],
-  "_note": "rev-d: re-diagnostic comentarii cu STRINGUL ERORII in log (dupa patch orders logging)"
+  "_note": "rev-e: valul CAT IN THE HAT (trending #1 gaming) - teaser cu poza noaptea + sondaj decizie episod"
 }
