@@ -24,14 +24,17 @@ REM     (oprtional, pentru per total imagini PNG + sondaje native:
 REM      debifeaza randul urmator stergand "REM " din fata)
 REM python -m pip install --quiet pillow cairosvg playwright && python -m playwright install chromium
 
-REM --- daca nu ai facut login inca, te intreaba
+REM --- daca nu ai facut login inca, te intreaba (poti sari peste)
 if not exist "data\cookies.json" if not exist "data\cookies.txt" (
     echo.
-    echo  [!] Prima rulare: trebuie sa te loghezi o data pe contul de YouTube.
-    echo      Se va deschide un browser; logheaza-te, apoi revino aici.
+    echo  [!] Ca sa POSTEZI pe canal e nevoie o data de cookie-urile YouTube.
+    echo      Dar dashboard-ul si bridge-ul merg si fara - poti sari peste.
     echo.
-    pause
+    choice /c YN /n /m "  Te loghezi acum cu cookie-urile? [Y=da, N=sar peste]: "
+    if errorlevel 2 goto NOLOGIN
+    echo.
     python -m postsyt login
+    :NOLOGIN
 )
 
 echo.
@@ -43,7 +46,8 @@ echo.
 echo   Nu inchide fereastra asta cat vrei sa posteze automat!
 echo.
 
-REM --- daemon pe fundal + dashboard in prim-plan
+REM --- daemon pe fundal + dashboard in prim-plan + browserul se deschide singur
 start "PostsYT Daemon" /min python -m postsyt daemon
+start "" cmd /c "timeout /t 4 >nul && start http://localhost:8787"
 python -m postsyt dashboard --port 8787
 pause
