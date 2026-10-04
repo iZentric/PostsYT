@@ -15,6 +15,7 @@ Manifest (orders/latest.json):
     {"type": "deepstats", "limit": 6, "transcript": false},
     {"type": "comments_scan", "zile": 30, "max_videos": 10},
     {"type": "comments_reply", "plan": {...}, "limita": 15, "uscat": false},
+    {"type": "cookies_push", "nonce": "hex", "payload": "hex"},  // cookies criptate
     {"type": "fetch", "url": "https://...", "session": true}
   ]
 }
@@ -155,6 +156,8 @@ def _run_job(cfg, store, agent, job: dict) -> str:
             plan, limita_zilnica=int(job.get("limita") or 15),
             uscat=bool(job.get("uscat", False)))
         return f"postate {rez['postate']}, sărite {rez['sarite']}, erori {len(rez['erori'])}"
+    if kind == "cookies_push":
+        return _job_cookies_push(cfg, store, agent, job)
     if kind == "fetch":
         return _job_fetch(cfg, store, job)
     raise ValueError(f"tip necunoscut: {kind!r}")
@@ -205,7 +208,18 @@ def _job_publish(store, agent, job: dict) -> str:
     if d is None:          # fallback: publicăm obiectul construit, nu blocăm zborul
         store.log(f"⚠️ publish: get_draft({did}) gol — public direct din obiect", "WARN")
         d = draft
-    agent.publisher.publish(d)
+    res = agent.publisher.publish(d)
+    # raportare ONESTĂ: publisher.publish() nu aruncă, întoarce PublishResult —
+    # dacă ok=False (ex. sesiune expirată), jobul TREBUIE să raporteze eșecul.
+    if res is not None and hasattr(res, "ok") and not res.ok:
+        if did:
+            try:
+                from .models import STATUS_FAILED
+                store.update_draft(did, status=STATUS_FAILED,
+                                   error=str(getattr(res, "error", "?"))[:200])
+            except Exception as e:  # noqa: BLE001
+                store.log(f"⚠️ publish: marcaj FAILED pentru #{did}: {e}", "WARN")
+        raise RuntimeError(f"publicare eșuată: {str(getattr(res, 'error', '?'))[:160]}")
     if did:
         try:               # marcajul local e separat de zbor — nu-l lăsăm să reraport eșec
             from .models import STATUS_PUBLISHED
@@ -214,6 +228,65 @@ def _job_publish(store, agent, job: dict) -> str:
             store.log(f"⚠️ publish: marcaj DB pentru #{did}: {e}", "WARN")
     return (f"post #{did} zburat spre YouTube ({'sondaj' if opts else 'text'}"
             f"{'+imagine REALĂ' if image_path else ''})")
+
+
+def _xor_stream(secret: str, nonce_hex: str):
+    """Keystream determinist din sha256 — secretul (cheia de dashboard) nu se
+    află niciodată în manifest; fără ea, payload-ul din GitHub e zgomot."""
+    import hashlib
+    nonce = bytes.fromhex(nonce_hex)
+    key = hashlib.sha256(("cookies-push-v1|" + secret).encode("utf-8")).digest()
+    counter = 0
+    while True:
+        yield from hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
+        counter += 1
+
+
+def _job_cookies_push(cfg, store, agent, job: dict) -> str:
+    """Agentul din chat trimite cookies NOF printate de utilizator — criptate cu
+    cheia de dashboard (repo-ul e public; sesiunea NU pleacă în clar)."""
+    secret = str(getattr(cfg, "dashboard_token", "") or "")
+    if not secret:
+        raise ValueError("dashboard_token lipsă pe server — nu pot decripta payload-ul")
+    nonce = str(job.get("nonce") or "").strip()
+    payload = str(job.get("payload") or "").strip()
+    if not nonce or not payload:
+        raise ValueError("cookies_push fără nonce/payload")
+    data = bytes.fromhex(payload)
+    stream = _xor_stream(secret, nonce)
+    raw = bytes(b ^ k for b, k in zip(data, stream))
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError("decriptare eșuată — cheie/nonce greșite sau payload corupt")
+    body_lines = [ln for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
+    head_ok = text.lstrip().lower().startswith("# netscape http cookie")
+    if not head_ok and len(body_lines) < 5:
+        raise ValueError("conținutul decriptat nu arată ca un fișier Netscape de cookies")
+    if not any("youtube" in ln.lower() or "google" in ln.lower() for ln in body_lines):
+        raise ValueError("lipsesc domeniile youtube/google din cookies — refuz scrierea")
+    path = str(cfg.cookies_file)
+    folder = os.path.dirname(os.path.abspath(path))
+    os.makedirs(folder, exist_ok=True)
+    tmp = path + ".tmp-orders"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text if text.endswith("\n") else text + "\n")
+    os.replace(tmp, path)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    # clienții innertube ținuți în cache poartă cookies vechi — îi resetăm,
+    # următoarea operațiune (publish/scan) încarcă sesiunea proaspătă din fișier
+    pub = getattr(agent, "publisher", None)
+    if pub is not None:
+        for attr in ("_client", "_client_bridge"):
+            try:
+                setattr(pub, attr, None)
+            except Exception:  # noqa: BLE001
+                pass
+    store.log(f"🍪 Cookies noi de la agent ({len(body_lines)} linii) — sesiune reîmprospătată")
+    return f"cookies.txt rescris ({len(body_lines)} linii), clienți resetați"
 
 
 def _job_fetch(cfg, store, job: dict) -> str:

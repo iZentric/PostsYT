@@ -607,6 +607,7 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                 state = {
                     "drafts": len(store.drafts(status=STATUS_DRAFT)),
                     "published_today": store.published_today(),
+                    "build": "cookies-push-1",
                 }
                 self._send(json.dumps(state), "application/json")
             else:

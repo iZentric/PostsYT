@@ -39,6 +39,7 @@ class FakePublisher:
 
     def publish(self, draft):
         self.published.append(draft)
+        return SimpleNamespace(ok=True, post_id="UgkTEST123", error="", mode="innertube")
 
 
 def _agent():
@@ -136,3 +137,64 @@ def test_publish_cu_imagine_reala(monkeypatch, tmp_path):
                "image_url": "https://x.ro/poza.jpg"}]))
     assert store.added[0].image_path == "/tmp/poza-reala.jpg"
     assert "imagine REALĂ" in rep["executed"][0]
+
+
+def _xor_encrypt(secret: str, nonce: bytes, raw: bytes) -> str:
+    stream = orders._xor_stream(secret, nonce.hex())
+    return bytes(b ^ k for b, k in zip(raw, stream)).hex()
+
+
+FAKE_COOKIES = (
+    "# Netscape HTTP Cookie File\n"
+    ".youtube.com\tTRUE\t/\tTRUE\t1999999999\tSID\tfake-sid\n"
+    ".youtube.com\tTRUE\t/\tTRUE\t1999999999\tHSID\tfake-hsid\n"
+    ".youtube.com\tTRUE\t/\tTRUE\t1999999999\tSSID\tfake-ssid\n"
+    ".youtube.com\tTRUE\t/\tTRUE\t1999999999\tSAPISID\tfake-sapisid\n"
+    ".youtube.com\tTRUE\t/\tTRUE\t1999999999\tLOGIN_INFO\tfake-login\n"
+)
+
+
+def test_cookies_push_rescrie_atomic_si_reseteaza_clienti(tmp_path):
+    cfile = tmp_path / "data" / "cookies.txt"
+    cfg = SimpleNamespace(data_dir=str(tmp_path / "data"),
+                          cookies_file=str(cfile), cookies_json="",
+                          dashboard_token="parola-secreta-test",
+                          own_channel_id="UC" + "x" * 22)
+    store, agent = FakeStore(), _agent()
+    agent.publisher._client = object()
+    nonce = b"\x01" * 8
+    payload = _xor_encrypt("parola-secreta-test", nonce, FAKE_COOKIES.encode())
+    rep = orders.pull_and_execute(cfg, store, agent, fetch_text=_manifest(
+        rev="ck-1", jobs=[{"type": "cookies_push",
+                           "nonce": nonce.hex(), "payload": payload}]))
+    assert "EROARE" not in rep["executed"][0], rep
+    assert cfile.read_text(encoding="utf-8") == FAKE_COOKIES
+    assert agent.publisher._client is None
+    assert any("Cookies noi" in m for m in store.logs)
+
+
+def test_cookies_push_cheie_gresita_nu_scrie_nimic(tmp_path):
+    cfile = tmp_path / "data" / "cookies.txt"
+    cfg = SimpleNamespace(data_dir=str(tmp_path / "data"),
+                          cookies_file=str(cfile), cookies_json="",
+                          dashboard_token="parola-secreta-test",
+                          own_channel_id="UC" + "x" * 22)
+    store, agent = FakeStore(), _agent()
+    nonce = b"\x02" * 8
+    payload = _xor_encrypt("ALTA-parola", nonce, FAKE_COOKIES.encode())
+    rep = orders.pull_and_execute(cfg, store, agent, fetch_text=_manifest(
+        rev="ck-2", jobs=[{"type": "cookies_push",
+                           "nonce": nonce.hex(), "payload": payload}]))
+    assert "EROARE" in rep["executed"][0]
+    assert not cfile.exists()
+
+
+def test_publish_raporteaza_onest_esecul_publisherului(tmp_path):
+    cfg, store, agent = _cfg(tmp_path), FakeStore(), _agent()
+    agent.publisher.publish = lambda d: SimpleNamespace(
+        ok=False, post_id="", error="Sesiunea nu e logată (LOGGED_IN=false)",
+        mode="error")
+    rep = orders.pull_and_execute(cfg, store, agent, fetch_text=_manifest(
+        rev="honest-1", jobs=[{"type": "publish", "text": "test onestitate"}]))
+    assert "EROARE" in rep["executed"][0]
+    assert "Sesiunea" in rep["executed"][0]
