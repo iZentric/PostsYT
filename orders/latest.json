@@ -1,9 +1,21 @@
 {
-  "rev": "2026-10-04-a",
-  "expires": "2026-10-20",
+  "rev": "2026-10-04-b",
+  "expires": "2026-10-30",
   "jobs": [
-    {"type": "analytics"},
-    {"type": "comments_scan", "zile": 60, "max_videos": 10}
+    {
+      "type": "analytics"
+    },
+    {
+      "type": "comments_scan",
+      "zile": 60,
+      "max_videos": 10
+    },
+    {
+      "type": "publish",
+      "kind": "A",
+      "text": "PE CINE AM GĂSIT pe POKECITY?! 🐹❓ Uitați-vă BINE la poză — un Pokemon SE ASCUNDE printre ei și nici NOCIVANU nu l-a văzut! Cine ghicește care e și îmi scrie numele lui jos ⬇️ îi dau SHOUTOUT în episodul următor 😈🔥",
+      "image_url": "https://raw.githubusercontent.com/iZentric/PostsYT/arena/01a103b1-postsyt/assets/postare-pe-cine-am-gasit.jpg"
+    }
   ],
-  "_note": "Firul ARENA: agentul din chat scrie ordinele aici, daemon-ul (15 min) le execută cu sesiunea contului. rev nou = executare nouă (idempotent per rev)."
+  "_note": "rev-b: prima postare REALA cu imagine (PokeCity Capybara-pattern) + refresh analytics + scan comentarii cu fixul activ"
 }
