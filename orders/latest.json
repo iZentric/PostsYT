@@ -1,5 +1,5 @@
 {
-  "rev": "2026-10-04-b",
+  "rev": "2026-10-04-c",
   "expires": "2026-10-30",
   "jobs": [
     {
@@ -15,7 +15,13 @@
       "kind": "A",
       "text": "PE CINE AM GĂSIT pe POKECITY?! 🐹❓ Uitați-vă BINE la poză — un Pokemon SE ASCUNDE printre ei și nici NOCIVANU nu l-a văzut! Cine ghicește care e și îmi scrie numele lui jos ⬇️ îi dau SHOUTOUT în episodul următor 😈🔥",
       "image_url": "https://raw.githubusercontent.com/iZentric/PostsYT/arena/01a103b1-postsyt/assets/postare-pe-cine-am-gasit.jpg"
+    },
+    {
+      "type": "publish",
+      "kind": "A",
+      "text": "FRATEEEE pokemonii astia sunt mult prea deștepți ..😭😭\nuitati-va ce mi-au facut la final 🧠🔥\nce ziceti, prindem altul la fel sau ne oprim cat e bine?? 😂\nscrieti-mi jos daca vreti EPISODUL 2 >>\nhttps://www.youtube.com/watch?v=n0wjz5kTAtI",
+      "image_url": "https://i.ytimg.com/vi/n0wjz5kTAtI/maxresdefault.jpg"
     }
   ],
-  "_note": "rev-b: prima postare REALA cu imagine (PokeCity Capybara-pattern) + refresh analytics + scan comentarii cu fixul activ"
+  "_note": "rev-c: 2 postari reale cu imagine (capybara-mistery + newest short in vocea naturala iSentric) + analytics + comments_scan"
 }
