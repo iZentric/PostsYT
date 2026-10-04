@@ -81,6 +81,20 @@ CĂUTARE WEB INSTANT (un singur POST, fără cod de parsare):
   Deschizi apoi fiecare "url" cu prin_pc() și ai TOATE datele pentru statistici.
   Funcționează chiar dacă PC-ul e oprit (revine pe „direct"). NU ocoli acest API.
 
+ANALYTICS REAL AL CANALULUI (un singur POST => tot JSON-ul):
+  POST {SERVER}/api/agent/analytics   cu corp JSON {"secret": "{SECRET}"}
+  → primești: abonați real-time, vizualizări totale, ultimele clipuri cu
+    views/durată/dată (video + shorts) și, când e disponibil, metricile private
+    Studio din ultimele 28 de zile (vizualizări, ore, abonați noi).
+  Folosește-l ÎNAINTE de orice propunere de conținut — decidem pe cifre, nu pe ghici.
+
+UPLOAD VIDEO (rulezi pe server cu sudo):
+  sudo /opt/postsyt/venv/bin/python -m postsyt upload /tmp/clip.mp4 \
+      --title "TITLUL" --description "DESCRIERE" --tags "minecraft,pokemon" \
+      --privacy unlisted        # private | unlisted | public
+  → default SAFE = private. La "public" ceri întâi confirmarea proprietarului.
+  → dacă răspunsul nu include id-ul, clipul apare în câteva minute în Studio → Conținut.
+
 CREDENȚIALELE MELE:
   SERVER = {SERVER}
   SECRET = {SECRET}

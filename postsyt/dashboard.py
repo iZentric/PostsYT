@@ -386,6 +386,24 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                       f"{len(res.get('results', []))} rezultate (via {res.get('via')})")
             self._send(json.dumps(res, ensure_ascii=False), "application/json")
 
+        def _agent_analytics(self):
+            """Analytics real al canalului pentru ORICE agent (un POST => JSON complet).
+            Combină paginile canalului + metricile private Studio. Vezi ytanalytics.py."""
+            payload = self._read_json_body(cap=64 * 1024)
+            hub = getattr(agent, "hub", None)
+            if not hub or not hub.check_secret(str(payload.get("secret", ""))):
+                self._send(json.dumps({"error": "secret invalid"}), "application/json", 403)
+                return
+            from . import ytanalytics
+            try:
+                res = ytanalytics.get_channel_analytics(cfg)
+                self._send(json.dumps(res, ensure_ascii=False), "application/json")
+                store.log(f"📊 Analytics API: {len(res.get('video_recente', []))} clipuri, "
+                          f"surse {', '.join(res.get('surse', [])) or '-'}")
+            except Exception as e:  # noqa: BLE001
+                self._send(json.dumps({"error": str(e)[:300]}), "application/json", 500)
+                store.log(f"❌ Analytics API a eșuat: {str(e)[:200]}", "ERROR")
+
         def _read_json_body(self, cap: int = 25 * 1024 * 1024) -> dict:
             length = min(int(self.headers.get("Content-Length", 0) or 0), cap)
             try:
@@ -506,6 +524,9 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                 return
             if u.path == "/api/bridge/search":
                 self._bridge_search()
+                return
+            if u.path == "/api/agent/analytics":
+                self._agent_analytics()
                 return
             if u.path == "/login":
                 length = int(self.headers.get("Content-Length", 0))

@@ -162,6 +162,43 @@ def cmd_export_config(args):
     print(open(src, encoding="utf-8").read())
 
 
+def cmd_analytics(args):
+    cfg, store, agent = _build(args.config)
+    from . import ytanalytics
+    res = ytanalytics.get_channel_analytics(cfg)
+    print(ytanalytics.format_summary(res))
+    if res.get("salvat_in"):
+        print(f"\n   💾 JSON complet: {res['salvat_in']}")
+    store.log(f"📊 Analytics citit ({len(res.get('video_recente', []))} clipuri, "
+              f"surse: {', '.join(res.get('surse', [])) or 'niciuna'})")
+
+
+def cmd_upload(args):
+    cfg, store, agent = _build(args.config)
+    from . import uploader
+    tags = [t.strip() for t in (args.tags or "").split(",") if t.strip()]
+
+    def progress(sent, total):
+        pct = int(sent * 100 / total) if total else 100
+        print(f"\r   ⬆️  {sent / 1048576:.0f}/{total / 1048576:.0f} MB ({pct}%)",
+              end="", flush=True)
+
+    res = uploader.upload_video(
+        cfg, args.file, title=args.title, description=args.description or "",
+        tags=tags, privacy=args.privacy.upper(), on_progress=progress)
+    print()
+    if res["ok"]:
+        store.log(f"🎬 Upload reușit: {args.file} → {res['url'] or 'procesare în Studio'}")
+        if res["url"]:
+            print(f"\n🔗 {res['url']}")
+        if res.get("eroare"):
+            print(f"ℹ️  {res['eroare']}")
+    else:
+        store.log(f"❌ Upload eșuat ({res['etapa']}): {res['eroare']}", "ERROR")
+        print(f"\nDetalii debug: {res.get('debug_path', '?')}")
+        sys.exit(1)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="postsyt",
                                 description="⚡ PostsYT — agent de postări YouTube Community pentru iSentric")
@@ -202,6 +239,18 @@ def main(argv=None):
 
     s = sub.add_parser("show-config", help="afișează configul exemplu")
     s.set_defaults(fn=cmd_export_config)
+
+    s = sub.add_parser("analytics", help="statisticile REALE ale canalului (abonați, views, Studio 28z)")
+    s.set_defaults(fn=cmd_analytics)
+
+    s = sub.add_parser("upload", help="urcă un videoclip pe canal (Studio flow, cookie-urile existente)")
+    s.add_argument("file", help="calea către fișierul video (.mp4 etc)")
+    s.add_argument("--title", default=None, help="titlul clipului (implicit: numele fișierului)")
+    s.add_argument("--description", default="", help="descrierea clipului")
+    s.add_argument("--tags", default="", help="taguri separate prin virgulă")
+    s.add_argument("--privacy", default="private", choices=["private", "unlisted", "public"],
+                   help="vizibilitate (implicit: private — cel mai sigur)")
+    s.set_defaults(fn=cmd_upload)
 
     args = p.parse_args(argv)
     args.fn(args)
