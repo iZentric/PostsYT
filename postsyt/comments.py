@@ -149,6 +149,9 @@ class Commenter:
             return str(self._poster(endpoint, body))
         client = self._ensure_client()
         client.ensure_config()
+        # CONTEXT REAL (fix: varianta hardcodată trimitea o clientVersion inexistentă
+        # => YouTube 400 la /next. Mereu contextul proaspăt întors de ytcfg.)
+        body = {**body, "context": client.context}
         url = f"{ORIGIN}/youtubei/v1/{endpoint}?key={client.api_key}&prettyPrint=false"
         cl_headers = (client.context or {}).get("client", {})
         headers = client._headers(**{
@@ -168,10 +171,15 @@ class Commenter:
         client_ctx = self._client.context if self._client else None
         ctx = client_ctx or {"client": {"clientName": "WEB",
                                         "clientVersion": "2.20250930.01.00"}}
-        r = self._post_json(_ENDPOINT_NEXT, {"context": ctx, "videoId": video_id})
-        token = comments_section_token(r)
         threads: list[dict] = []
         seen: set = set()
+        try:
+            r = self._post_json(_ENDPOINT_NEXT, {"context": ctx, "videoId": video_id})
+        except Exception as e:  # noqa: BLE001 - reîncearcă o dată după refresh de context
+            client_ctx = self._client.context if self._client else None
+            ctx = client_ctx or ctx
+            r = self._post_json(_ENDPOINT_NEXT, {"context": ctx, "videoId": video_id})
+        token = comments_section_token(r)
         pages = 0
         while token and pages < max_pages:
             pages += 1

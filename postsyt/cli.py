@@ -225,6 +225,8 @@ def cmd_comments(args):
         print(f"\n💬 {rez['total']} comentarii care așteaptă răspuns "
               f"(din {rez['videoclipuri_scanate']} clipuri). "
               f"Erori: {len(rez['erori'])}")
+        for e in rez["erori"][:3]:
+            print(f"   ⚠️ {e}")
         for i, t in enumerate(rez["threaduri_raspundibile"][:15], 1):
             print(f"  {i:>2}. {t['autor'][:20]} la «{t['video_titlu'][:36]}» "
                   f"({t['publicat']}): {t['text'][:60]}")
