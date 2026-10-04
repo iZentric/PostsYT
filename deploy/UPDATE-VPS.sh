@@ -35,6 +35,14 @@ cp /tmp/postsyt-config.backup.json config.json
 chmod 600 config.json
 [ -f data/cookies.txt ] && chmod 600 data/cookies.txt || true
 
+# ---- portul deschis în firewall (Oracle = tot închis by default)
+iptables -C INPUT -p tcp --dport 8787 -j ACCEPT 2>/dev/null || \
+  iptables -I INPUT 1 -p tcp --dport 8787 -m conntrack --ctstate NEW -j ACCEPT || true
+export DEBIAN_FRONTEND=noninteractive
+(apt-get install -y -qq iptables-persistent >/dev/null 2>&1 && \
+  netfilter-persistent save >/dev/null 2>&1) || true
+echo "🧯 firewall: portul 8787 deschis (+ persistare)"
+
 # ---- restart servicii
 systemctl daemon-reload
 systemctl restart postsyt-daemon postsyt-dashboard

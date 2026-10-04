@@ -66,6 +66,14 @@ PY
 chmod 600 config.json 2>/dev/null || true
 
 # ---- servicii systemd
+# Oracle vine cu firewall-ul INCHIS total (doar SSH) — deschidem portul aplicației
+PORTFW="${PORT:-8787}"
+iptables -C INPUT -p tcp --dport "$PORTFW" -j ACCEPT 2>/dev/null || \
+  iptables -I INPUT 1 -p tcp --dport "$PORTFW" -m conntrack --ctstate NEW -j ACCEPT || true
+export DEBIAN_FRONTEND=noninteractive
+(apt-get install -y -qq iptables-persistent >/dev/null 2>&1 && \
+  netfilter-persistent save >/dev/null 2>&1) || true
+echo "🧯 firewall: portul $PORTFW deschis în iptables (+ persistare)"
 PYBIN="$DIR/venv/bin/python"
 cat > /etc/systemd/system/postsyt-daemon.service <<UNIT
 [Unit]
