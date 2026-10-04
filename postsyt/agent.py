@@ -45,6 +45,37 @@ class Agent:
         return None
 
     # ------------------------------------------------------------ helpers
+    def check_auth_daily(self) -> bool:
+        """O dată pe zi: sesiunea YouTube mai e vie? Marchează auth_dead + pasul de rezolvare."""
+        import time
+        last = float(self.store.get_kv("auth_check_ts") or 0)
+        if time.time() - last < 20 * 3600:
+            return self.store.get_kv("auth_dead") != "1"
+        self.store.set_kv("auth_check_ts", time.time())
+        if self.cfg.publish_driver == "queue":
+            return True
+        import os
+        have_cookies = (os.path.exists(self.cfg.cookies_file)
+                        or os.path.exists(self.cfg.cookies_json))
+        if not have_cookies:
+            self.store.set_kv("auth_dead", "1")
+            self.store.set_kv("auth_dead_reason", "none")
+            return False
+        try:
+            from .innertube import load_cookies, check_auth
+            ok, msg = check_auth(load_cookies(self.cfg.cookies_file, self.cfg.cookies_json))
+        except Exception as e:
+            ok, msg = False, str(e)
+        was_dead = self.store.get_kv("auth_dead") == "1" \
+            and self.store.get_kv("auth_dead_reason") == "expired"
+        self.store.set_kv("auth_dead", "0" if ok else "1")
+        self.store.set_kv("auth_dead_reason", "" if ok else "expired")
+        if not ok:
+            self.store.log(f"🔑 Sesiunea YouTube nu mai e validă: {msg[:120]} — re-exportă cookies (3 min)", "WARN")
+        elif was_dead:
+            self.store.log("🔑 Sesiunea YouTube e din nou validă ✅")
+        return ok
+
     def _own_link(self) -> str:
         v = self.store.latest_video()
         if v:
@@ -314,6 +345,10 @@ class Agent:
     def tick(self, quick: bool = False) -> dict:
         report = {"feeds": 0, "mirror": 0, "trends": 0, "planned": 0, "published": 0}
         self.store.log("── tick agent ──")
+        try:
+            self.check_auth_daily()
+        except Exception as e:
+            self.store.log(f"check auth zilnic: {e}", "WARN")
         report["feeds"] = self.scan_own_feed()
         if not quick:
             report["mirror"] = self.scan_mirror_posts()

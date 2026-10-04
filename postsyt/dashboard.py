@@ -105,6 +105,7 @@ video,img.emoji{vertical-align:middle}
 <body>
 <h1>⚡ <b>PostsYT</b> — agentul de postări al lui <b>iSentric</b> <span class="pill">Minecraft · PokeCity</span></h1>
 <div class="sub">Regula de aur: hook + visual + link la cel mai nou clip · ritm copiat după @JocuriHorrorSky · <span class="pulse"></span> daemon: {{daemon}}{{bridge}}</div>
+{{auth_banner}}
 
 <div class="grid kpis">
  <div class="card kpi"><b>{{kpi_videos}}</b><span>videoclipuri urmărite</span></div>
@@ -262,6 +263,22 @@ class Dashboard:
             f'<div class="{e["level"]}">[{(e["ts"] or "")[5:16].replace("T"," ")}] {e["msg"]}</div>'
             for e in evs)
 
+    def _auth_banner(self) -> str:
+        if self.store.get_kv("auth_dead") != "1":
+            return ""
+        if self.store.get_kv("auth_dead_reason") == "none":
+            txt = ("⚠️ NICIO sesiune YouTube configurată încă — agentul poate crea drafturi, "
+                   "dar NU poate posta. Rezolvare (3 minute, o singură dată): extensia "
+                   "Cookie-Editor → youtube.com → Export »Netscape« → salvezi textul în "
+                   "data/cookies.txt (să îl trimiți mie în chat și-l pun eu) → refresh.")
+        else:
+            txt = ("🔴 COOKIE-URILE AU EXPIRAT — postările sunt în pauză. Rezolvare (3 minute): "
+                   "Cookie-Editor → youtube.com → Export »Netscape« → înlocuiești data/cookies.txt "
+                   "→ refresh aici. Asta se întâmplă rar (săptămâni-luni), nu zilnic.")
+        return ('<div style="margin:12px 0;padding:12px 14px;border-radius:10px;'
+                'background:#40141a;border:1px solid #7a2230;color:#ffb3be;font-size:14px">'
+                + txt + "</div>")
+
     def _bridge_badge(self) -> str:
         hub = getattr(self.agent, "hub", None)
         if not hub or not hub.enabled:
@@ -284,6 +301,7 @@ class Dashboard:
         repl = {
             "{{daemon}}": daemon,
             "{{bridge}}": self._bridge_badge(),
+            "{{auth_banner}}": self._auth_banner(),
             "{{kpi_videos}}": str(self.store.count_videos()),
             "{{kpi_drafts}}": str(len(d_list)),
             "{{kpi_today}}": str(self.store.published_today()),
