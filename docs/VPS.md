@@ -80,3 +80,9 @@ journalctl -u postsyt-daemon -n 50    # ultimele loguri
 systemctl restart postsyt-daemon      # restart dacă l-ai blocat
 cd /opt/postsyt/app && git pull       # update cod + systemctl restart postsyt-daemon
 ```
+
+## Actualizări (după instalare)
+```
+curl -sSL https://raw.githubusercontent.com/iZentric/PostsYT/arena/01a103b1-postsyt/deploy/UPDATE-VPS.sh | sudo bash
+```
+Singura comandă necesară vreodată pentru a aduce serverul la zi (păstrează configul + datele).

@@ -345,7 +345,7 @@ def main(argv=None):
     s.add_argument("--limita", type=int, default=40,
                    help="max răspunsuri/zi (implicit 40 — prag anti-spam)")
     s.add_argument("--uscat", action="store_true",
-                   help="dry-run: arată ce ar publica, fără să publiche")
+                   help="dry-run: arată ce ar publica, fără să publice")
     s.set_defaults(fn=cmd_comments)
 
     s = sub.add_parser("deepstats", help="analiză ADÂNCĂ per clip: metadate, transcript, top comentarii")
