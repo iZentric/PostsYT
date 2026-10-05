@@ -495,6 +495,21 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                 self._send(json.dumps({"error": str(e)[:300]}), "application/json", 500)
                 store.log(f"❌ Deepsearch eșuat: {str(e)[:200]}", "ERROR")
 
+        def _api_agent_action(self, name: str):
+            """Poarta de ACCES TOTAL pentru agenți externi: POST {secret, ...} =>
+            execută agent_action pe server (publish / comments_scan / comment_reply)."""
+            payload = self._read_json_body(cap=64 * 1024)
+            if not self._secret_ok_body(payload):
+                self._send(json.dumps({"error": "secret invalid"}), "application/json", 403)
+                return
+            try:
+                rez = agent_action(cfg, store, agent, name, payload)
+                self._send(json.dumps(rez, ensure_ascii=False), "application/json")
+                store.log(f"🤖 Agent extern ({name}): {str(rez.get('detail', ''))[:150]}")
+            except Exception as e:  # noqa: BLE001
+                self._send(json.dumps({"error": str(e)[:300]}), "application/json", 500)
+                store.log(f"❌ Agent extern ({name}) eșuat: {str(e)[:200]}", "ERROR")
+
         def _read_json_body(self, cap: int = 25 * 1024 * 1024) -> dict:
             length = min(int(self.headers.get("Content-Length", 0) or 0), cap)
             try:
@@ -607,7 +622,7 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                 state = {
                     "drafts": len(store.drafts(status=STATUS_DRAFT)),
                     "published_today": store.published_today(),
-                    "build": "cookies-push-1",
+                    "build": "agent-full-1",
                 }
                 self._send(json.dumps(state), "application/json")
             else:
@@ -632,6 +647,15 @@ button{{background:#574410;border:1px solid #8a7017;color:#ffe9a8;padding:10px 1
                 return
             if u.path == "/api/agent/deepsearch":
                 self._agent_deepsearch()
+                return
+            if u.path == "/api/agent/publish":
+                self._api_agent_action("publish")
+                return
+            if u.path == "/api/agent/comments_scan":
+                self._api_agent_action("comments_scan")
+                return
+            if u.path == "/api/agent/comment_reply":
+                self._api_agent_action("comment_reply")
                 return
             if u.path == "/login":
                 length = int(self.headers.get("Content-Length", 0))
@@ -755,6 +779,39 @@ def run_task(cfg, store, agent, op: str, params: dict) -> str:
     raise ValueError(f"op necunoscut: {op!r}")
 
 
+def agent_action(cfg, store, agent, name: str, payload: dict) -> dict:
+    """ACȚIUNI CU ACCES TOTAL pentru agenții externi (POST /api/agent/*).
+    Refolosește exact motorul ordinelor — aceeași construcție de draft, același
+    mecanism de publicare, același raport de eroare ONEST (fără fals-succes)."""
+    from .orders import _job_publish, _run_job
+    if name == "publish":
+        job = {"type": "publish",
+               "text": str(payload.get("text", ""))[:2000],
+               "image_url": str(payload.get("image_url", ""))[:1000],
+               "kind": str(payload.get("kind", "A"))[:1].upper() or "A"}
+        if isinstance(payload.get("poll_options"), list):
+            job["poll_options"] = [str(o)[:80] for o in payload["poll_options"]][:8]
+        return {"ok": True, "detail": _job_publish(store, agent, job)}
+    if name == "comments_scan":
+        detail = _run_job(cfg, store, agent, {"type": "comments_scan",
+                          "zile": int(payload.get("zile", 30) or 30),
+                          "max_videos": int(payload.get("max_videos", 10) or 10)})
+        out = {"ok": True, "detail": detail, "continut": ""}
+        try:
+            with open(os.path.join(cfg.data_dir, "comments.json"), encoding="utf-8") as f:
+                out["continut"] = f.read()[:8000]
+        except OSError:
+            pass
+        return out
+    if name == "comment_reply":
+        detail = _run_job(cfg, store, agent, {"type": "comments_reply",
+                          "plan": payload.get("plan") or {},
+                          "limita": int(payload.get("limita", 15) or 15),
+                          "uscat": bool(payload.get("uscat", False))})
+        return {"ok": True, "detail": detail}
+    raise ValueError(f"agent_action necunoscut: {name!r}")
+
+
 def _kit_agent_text(cfg, base: str, secret: str) -> str:
     """Textul complet pe care proprietarul IL COPIAZĂ dintr-un click și îl dă ORICĂRUI
     agent — inclusiv celor cu sandbox blocat, pentru că DATA REALA E ATASATA IN TEXT."""
@@ -775,11 +832,13 @@ def _kit_agent_text(cfg, base: str, secret: str) -> str:
         "🕳️ deep search (citește paginile): {BASE}/api/agent/deepsearch {\"secret\": SECRET, \"q\": \"...\", \"k\": 3}\n"
         "🌐 fetch arbitrar:     {BASE}/api/bridge/request  {\"secret\": SECRET, \"method\": \"GET\", \"url\": \"...\"}\n\n"
         "ACȚIUNI PE CANAL (tot ce e public = aprobarea MEa, fără excepții):\n"
-        "✍️ postări comunitate: pregătești textul (română energică, CTA cu întrebări/"
-        "alegeri, ZERO linkuri vizibile) și mi-l arăți.\n"
-        "💬 comentarii: din datele atașate alegi la ce răspundem; scrii planul JSON "
-        "personalizat (max 2 propoziții + max 1 emoji, stil coleg de gaming).\n"
-        "🎬 upload: pregătești titlu+descriere+taguri complete; public doar cu «DA».\n\n"
+        "🚀 PUBLICI post Community: {BASE}/api/agent/publish {\"secret\": SECRET, \"text\": \"...\", \"image_url\": \"https://...\" (opțional), \"poll_options\": [\"..\",\"..\"] (opțional)}\n"
+        "💬 SCANEZI comentarii:   {BASE}/api/agent/comments_scan {\"secret\": SECRET, \"zile\": 30, \"max_videos\": 10}\n"
+        "↩️ RĂSPUNZI comentarii: {BASE}/api/agent/comment_reply {\"secret\": SECRET, \"plan\": {...}, \"limita\": 15, \"uscat\": false}\n"
+        "Stil postări: română energică de copil-creator (caps doar pe 1-2 cuvinte-cheie, "
+        "întrebare directă, link la final, fără structuri simetrice). Stil răspunsuri: "
+        "max 2 propoziții + max 1 emoji, coleg de gaming. Ai acordul proprietarului "
+        "pentru autonomie TOTALĂ pe postări și răspunsuri.\n\n"
         "REGULI DE FIER: doar date reale (lipsește cifra = spui «lipsesc datele»); "
         "secretele de aici nu se împart cu nimeni; nimic inventat.\n"
         "Confirmă cu «CONECTAT ⚡» și zi din ce mod lucrezi (A sau B).\n"
